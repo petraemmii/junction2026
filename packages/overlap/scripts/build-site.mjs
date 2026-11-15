@@ -18,9 +18,8 @@
 // apps/landing/src/config.ts), so the app is neither built nor bundled.
 //
 // "Get started" goes to <base>get-started, on the landing page's own origin. The "Log in" form there
-// submits a GET form to the platform (PLATFORM_URL in config.ts): the pre-selection app when
-// PUBLIC_PRESELECT_URL is set, else the app. When that is on another origin, the origin is added
-// to `form-action` in dist/_headers.
+// submits a GET form to the platform (PLATFORM_URL in config.ts): the app. When that is on another
+// origin (PUBLIC_APP_URL), the origin is added to `form-action` in dist/_headers.
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -115,8 +114,8 @@ if (baseDir) {
 
 // The landing page's CSP has `form-action 'self'`, which blocks the "Log in" form of /get-started
 // when the platform it opens is on another origin. Allow exactly that origin (a relative URL is
-// same-origin already). The platform, as in config.ts: the pre-selection app, else the app.
-const platform = process.env.PUBLIC_PRESELECT_URL || externalApp
+// same-origin already). The platform, as in config.ts: the app.
+const platform = externalApp
 const origin = platform && URL.canParse(platform) ? new URL(platform).origin : null
 if (origin && origin !== 'null') {
   const file = path.join(landingDist, '_headers')

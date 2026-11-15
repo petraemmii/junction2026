@@ -1,13 +1,15 @@
 # Astro generated types and caches
 .astro/
 
-# Collected applicant data: read from real people's public profiles, never committed.
+# Collected data stays local by default.
 data/*
 # The event's companies are public information and the same for everyone, so they are shared.
 !data/companies.json
-# So is the list of public portfolio addresses the test applicants are collected from. What
-# is read from those pages (applicants.json) is not.
+# So is the list of public portfolio addresses the test applicants are collected from.
 !data/seeds.json
+# And what was read from them, so a fresh clone shows the same applicants without spending
+# Context.dev credits. `scripts/collect.ts` adds to it as before.
+!data/applicants.json
 
 # The root .gitignore excludes every .env file; the example with empty values is committed.
 !.env.example

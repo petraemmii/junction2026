@@ -13,6 +13,7 @@ export type Route =
   | { name: 'results' }
   | { name: 'settings' }
   | { name: 'overview' }
+  | { name: 'shortlist' }
 
 type State = {
   email: string

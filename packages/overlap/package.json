@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp run --filter @overlap/app dev",
-    "dev:landing": "vp run --parallel --filter @overlap/landing --filter @overlap/preselect dev",
+    "dev:landing": "vp run --parallel --filter @overlap/landing --filter @overlap/preselect --filter @overlap/app dev",
     "build": "vp run -r build",
     "build:site": "node scripts/build-site.mjs",
     "test": "vp test",

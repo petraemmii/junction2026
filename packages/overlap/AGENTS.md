@@ -18,7 +18,7 @@ pnpm workspace (pnpm 10.34.3, Node 22) on the Vite+ toolchain (`vp`). See README
   `vite.config.ts` holds only the test settings (Astro does not read it). `src/pages/get-started.astro`
   (parts and CSS in `src/components/get-started/`, photo `src/assets/get-started-crowd.webp`): the
   login-style page every "Get started" goes to (`GET_STARTED_URL`); it opens the platform
-  (`PLATFORM_URL`: the pre-selection app's organiser view when it runs, else the app) with the handoff
+  (`PLATFORM_URL`: the app, whose company side has the event's shortlist) with the handoff
   query `?from=get-started`, which the app (`apps/app/src/lib/handoff.ts`) answers by skipping its login.
 - `scripts/build-site.mjs` (`vp run build:site`): the deployed site in `apps/landing/dist`, built for
   `SITE_URL` and `SITE_BASE`, by default `https://junction2026.com` and `/submission/`

@@ -21,7 +21,7 @@ Node.js 22.23.4+ (Astro 7's minimum) and pnpm 10.34.3 (pinned in `.mise.toml` an
 ```sh
 vp install              # install the whole workspace
 vp run dev              # app dev server, http://localhost:8443 ($PORT overrides)
-vp run dev:landing      # landing, http://localhost:4321, and pre-selection, http://localhost:4322
+vp run dev:landing      # landing :4321, pre-selection :4322 and the app :8443 together
 vp run build            # build both apps on their own (vp run -r build)
 vp run build:site       # build the composed site into apps/landing/dist (see below)
 vp test                 # unit tests (Vitest)
@@ -50,16 +50,23 @@ cp apps/preselect/.env.example apps/preselect/.env   # then put the Context.dev 
 pnpm --filter @overlap/preselect run dev             # http://localhost:4322
 ```
 
-The organiser view is empty at first: the collected applicant data is not in the repository.
-See [apps/preselect/README.md](apps/preselect/README.md) for the scripts that collect it.
+The test applicants are in the repository (`apps/preselect/data/applicants.json`). See
+[apps/preselect/README.md](apps/preselect/README.md) for the scripts that collect them again.
 
-`pnpm run dev:landing` starts this app next to the landing page, and the landing page's ask box
-passes a public profile on to it (`PRESELECT_URL` in `apps/landing/src/config.ts`,
+`pnpm run dev:landing` starts this app next to the landing page and the app. The landing page's
+ask box passes a public profile on to it (`PRESELECT_URL` in `apps/landing/src/config.ts`,
 http://localhost:4322 in development). The profile is read and scored for the organiser; the
 visitor is told which companies at the event it matches. A build sends profiles only when
 `PUBLIC_PRESELECT_URL` is set. A deployed site would also need the backend's origin in
 the landing page's `connect-src` (`apps/landing/public/_headers`) and its own origin in the
 backend's `PRESELECT_ALLOWED_ORIGINS`; neither is set up.
+
+The app's company side opens the event's shortlist ("Pick who gets a place" on its events page,
+`apps/app/src/screens/Shortlist.tsx`): the organiser view's sliders and applicant cards in the
+app's design. It reads the applicants from `GET /api/organiser` (`VITE_PRESELECT_URL`,
+http://localhost:4322 in development) and scores them with the pre-selection app's own code
+(`apps/preselect/src/lib`). A deployed app would need `VITE_PRESELECT_URL`, the backend's origin in
+the `/app/` `connect-src` and its own origin in `PRESELECT_ALLOWED_ORIGINS`; none is set up.
 
 ## The composed site
 
@@ -97,11 +104,11 @@ A root build (`SITE_BASE=/`) skips step 3: the landing page at `/` (`dist/index.
 `APP_BASE` (default `/`) only applies when `FIGMA_PUBLIC_URL` is unset, so Figma Make builds of
 the app are unchanged. The landing page's "Get started" buttons go to `/get-started`
 (`GET_STARTED_URL`), a login-style page whose "Log in" opens the platform (`PLATFORM_URL`): the
-pre-selection app's organiser view when it runs (`PRESELECT_URL`), else the app at `/app/`
-(`APP_URL`). All four are in `apps/landing/src/config.ts`.
+app at `/app/`, http://localhost:8443 in development (`APP_URL`). All three are in
+`apps/landing/src/config.ts`.
 
 Set `PUBLIC_APP_URL` to open an app deployed elsewhere instead; `build:site` then skips the app.
-When the platform is on another origin (`PUBLIC_PRESELECT_URL`, else `PUBLIC_APP_URL`),
+When the app is on another origin (`PUBLIC_APP_URL`),
 `build:site` adds that origin to the landing page's `form-action` CSP directive in `dist/_headers`
 (the "Log in" form on `/get-started` submits a GET form to it).
 
@@ -187,7 +194,7 @@ WebP at build time; `--gs-photo-focus` in `get-started.css` is the point of the 
 in view at every size (the person standing still) and `--gs-photo-clear` how much of its width is
 free for the tagline to the left of them. Nothing typed into the page is sent: its fields have no
 `name`. "Log in" (a GET form) and "Sign up here" open the platform (`PLATFORM_URL`) with
-`?from=get-started`. The organiser view has no login and takes no notice of the query. The app
+`?from=get-started`. The app
 (`apps/app/src/lib/handoff.ts`) reads it once, removes it from the address and signs the visitor
 in as the demo unless an email is stored, so they skip the app's own login. The query is defined in
 both apps; `src/config.test.ts` fails when the two differ.

@@ -9,11 +9,13 @@ import { sitePath } from '@/lib/base'
 export const APP_PATH = '/app/'
 
 /**
- * The Overlap app. By default the app is served by the same Worker at APP_PATH below the site's
- * base (see the root `build:site` script); set PUBLIC_APP_URL at build time to point at another
+ * The Overlap app. A build serves it from the same Worker at APP_PATH below the site's base (see
+ * the root `build:site` script); in development it is http://localhost:8443, which
+ * `vp run dev:landing` starts as well. Set PUBLIC_APP_URL at build time to point at another
  * deployment instead.
  */
-export const APP_URL: string = import.meta.env.PUBLIC_APP_URL || sitePath(APP_PATH)
+export const APP_URL: string =
+  import.meta.env.PUBLIC_APP_URL || (import.meta.env.DEV ? 'http://localhost:8443/' : sitePath(APP_PATH))
 
 /**
  * The pre-selection app (apps/preselect), which reads the profiles typed in the ask box. In
@@ -28,10 +30,10 @@ export const PRESELECT_URL: string = (
 export const GET_STARTED_URL = sitePath('/get-started')
 
 /**
- * The platform that "Log in" and "Sign up here" on /get-started open: the pre-selection app's
- * organiser view when that app runs, else the Overlap app.
+ * The platform that "Log in" and "Sign up here" on /get-started open: the Overlap app. Its company
+ * side has the event's shortlist, read from the pre-selection app.
  */
-export const PLATFORM_URL: string = PRESELECT_URL ? `${PRESELECT_URL}/` : APP_URL
+export const PLATFORM_URL: string = APP_URL
 
 /**
  * The query /get-started adds when it opens the platform: ?from=get-started. The Overlap app reads

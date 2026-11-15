@@ -14,8 +14,14 @@ const vendored = [
   'apps/landing/src/components/islandcn/**',
 ]
 
-// Generated or tool-owned files.
-const generated = ['**/dist/**', '**/.astro/**', '**/.wrangler/**', 'apps/landing/worker-configuration.d.ts']
+// Generated or tool-owned files. applicants.json is written by the pre-selection app's collection.
+const generated = [
+  '**/dist/**',
+  '**/.astro/**',
+  '**/.wrangler/**',
+  'apps/landing/worker-configuration.d.ts',
+  'apps/preselect/data/applicants.json',
+]
 
 export default defineConfig({
   // `vp test` at the root runs the tests of these packages, each with the `test` block of its own
