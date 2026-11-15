@@ -30,25 +30,29 @@ export const DEFAULT_FILTERS: AskFilters = { onlineOnly: false, minFit: 40 }
 /** An ask as the flow runs it: trimmed, with single spaces, at most 160 characters. */
 export const cleanAsk = (text: string) => text.trim().replace(/\s+/g, ' ').slice(0, 160)
 
-/** What the ask box says about the event, before and after a profile is read. */
+const plural = (count: number) => `${count} ${count === 1 ? 'event' : 'events'}`
+
+/** What the ask box says while nothing is asked: how many events are in the field. */
+export const idleLine = (events: number) => `${plural(events)} this season. Ask for what you want.`
+
+/** What the ask box says about the event while a profile is read and after. */
 export function eventLines(event: EventInfo) {
   const companies = `${event.companies} ${event.companies === 1 ? 'company' : 'companies'}`
   return {
-    idle: `${event.name}, ${event.when}. ${companies}. Give your public profile.`,
     checking: `Checking your profile against ${companies}…`,
     noMatch: `No match with the ${companies} at ${event.name}.`,
     notProfile: `Give a public profile link to check your match with the ${companies}.`,
   }
 }
 
-function summary(shown: readonly LandingEvent[], filters: AskFilters, idle: string): string {
+function summary(shown: readonly LandingEvent[], filters: AskFilters): string {
   const filtered = filters.onlineOnly || filters.minFit !== DEFAULT_FILTERS.minFit
   const scope = `${filters.onlineOnly ? 'online ' : ''}events with a fit of ${filters.minFit} or more`
   if (!shown.length) {
     return `No ${scope}. ${filters.onlineOnly ? 'Lower the fit or turn off Online only.' : 'Lower the fit to see more.'}`
   }
   if (filtered) return `${shown.length} ${shown.length === 1 ? scope.replace('events', 'event') : scope}.`
-  return idle
+  return idleLine(shown.length)
 }
 
 /**
@@ -64,7 +68,7 @@ export function useAskFlow(event: EventInfo): AskFlow {
   const [shown, setShown] = useState<readonly LandingEvent[]>(() =>
     matchEvents(EVENTS, { query: '', ...DEFAULT_FILTERS }),
   )
-  const [message, setMessage] = useState(() => summary(shown, DEFAULT_FILTERS, lines.idle))
+  const [message, setMessage] = useState(() => summary(shown, DEFAULT_FILTERS))
 
   const timers = useRef<number[]>([])
   // What the timers read when they fire: the filters as of the last render.
@@ -98,7 +102,7 @@ export function useAskFlow(event: EventInfo): AskFlow {
     (nextFilters: AskFilters) => {
       const answers = matchEvents(EVENTS, { query: '', ...nextFilters })
       setShown(answers)
-      setMessage(summary(answers, nextFilters, lines.idle))
+      setMessage(summary(answers, nextFilters))
       if (!answers.length) {
         setPhase('idle')
         return
@@ -106,7 +110,7 @@ export function useAskFlow(event: EventInfo): AskFlow {
       setPhase('speaking')
       later(pace(1100), () => setPhase('idle'))
     },
-    [later, pace, lines.idle],
+    [later, pace],
   )
 
   /** End an ask with its line; "error" is the red flash of no match. */

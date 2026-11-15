@@ -1,22 +1,26 @@
 import { describe, expect, it } from 'vite-plus/test'
 
 import { SKULL_ASK } from '@/data/events'
-import { cleanAsk, eventLines } from './use-ask-flow'
+import { cleanAsk, eventLines, idleLine } from './use-ask-flow'
+
+describe('idleLine', () => {
+  it('counts the events in the field', () => {
+    expect(idleLine(24)).toBe('24 events this season. Ask for what you want.')
+    expect(idleLine(1)).toBe('1 event this season. Ask for what you want.')
+  })
+})
 
 describe('eventLines', () => {
-  const lines = eventLines({ name: 'Deep Tech Talent Forum', when: '26–27 Nov, online', companies: 27 })
+  const lines = eventLines({ name: 'Deep Tech Talent Forum', companies: 27 })
 
-  it('speaks of the event and its companies, not of the demo events', () => {
-    expect(lines.idle).toBe('Deep Tech Talent Forum, 26–27 Nov, online. 27 companies. Give your public profile.')
+  it('speaks of the event and its companies while a profile is read', () => {
     expect(lines.checking).toBe('Checking your profile against 27 companies…')
     expect(lines.noMatch).toBe('No match with the 27 companies at Deep Tech Talent Forum.')
     expect(lines.notProfile).toBe('Give a public profile link to check your match with the 27 companies.')
   })
 
   it('says one company in the singular', () => {
-    expect(eventLines({ name: 'Forum', when: 'today', companies: 1 }).checking).toBe(
-      'Checking your profile against 1 company…',
-    )
+    expect(eventLines({ name: 'Forum', companies: 1 }).checking).toBe('Checking your profile against 1 company…')
   })
 })
 
