@@ -27,7 +27,8 @@ pnpm workspace (pnpm 10.34.3, Node 22) on the Vite+ toolchain (`vp`). See README
 - `apps/preselect` (`@overlap/preselect`): the pre-selection backend, Astro 7 server-rendered: the
   organiser view (`src/pages/index.astro`) and the API (`src/pages/api/`, `apply.ts` reads a profile
   through Context.dev, `organiser.ts` serves the organiser's data to the app's shortlist,
-  `apps/app/src/screens/Shortlist.tsx`, which finds the backend through `VITE_PRESELECT_URL`).
+  `apps/app/src/screens/Shortlist.tsx`, which finds the backend through `VITE_PRESELECT_URL`;
+  its controls are the landing page's Bubble UI components, see Rules).
   Two targets (`astro.config.mjs`): a Node server at the root of its origin with JSON files in
   `data/` (the default: `astro dev`, port 4322, `astro build`), and Cloudflare
   Workers below `PRESELECT_BASE` with a D1 database (`PRESELECT_TARGET=workers`, set by `build:site`;
@@ -71,6 +72,11 @@ pnpm workspace (pnpm 10.34.3, Node 22) on the Vite+ toolchain (`vp`). See README
 - Likewise islandcn in `apps/landing/src/lib/island/` and `apps/landing/src/components/islandcn/`
   (upstream commit `0011a41`, MIT, `LICENSE` beside the engine): vendored verbatim, never edit,
   format or lint-fix them.
+- The app's shortlist (`apps/app/src/screens/Shortlist.tsx`, layout in `shortlist.css`) imports the
+  Soap Bubble components and `GLASS`/`PALETTE` (`landing/settings.ts`) from `apps/landing` as they
+  are. Keep `resolve.dedupe: ['react', 'react-dom']` in `apps/app/vite.config.ts` (the packages
+  depend on different React versions; two Reacts break the hooks). Give them no `backdrop`: its
+  html-to-image capture needs `data:`/`blob:` images, which the `/app/` CSP blocks.
 - The landing page is served below a base (`/submission`): every root-relative URL it emits or
   navigates to goes through `sitePath` (`apps/landing/src/lib/base.ts`), never a literal `"/..."`.
   Astro prefixes its own output (`_astro/`, fonts, images).

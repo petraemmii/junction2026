@@ -1,0 +1,457 @@
+/* The shortlist's layout (Shortlist.tsx). Phones and tablets: the applicants first, the controls in a
+   bottom sheet. From 1024 px: a sticky header, the controls in a sticky rail, the applicants in a
+   grid that adds columns as the window grows. Colours are the app's palette (index.css). */
+
+.sl {
+  --sl-gutter: 16px;
+  --sl-head: calc(68px + env(safe-area-inset-top));
+  --sl-shadow: 0 1px 0 rgb(17 32 28 / 0.03), 0 18px 40px -30px rgb(17 32 28 / 0.35);
+  min-height: 100dvh;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* ---------------------------------------------------------------- header */
+.sl-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--sl-head);
+  padding: env(safe-area-inset-top) max(var(--sl-gutter), env(safe-area-inset-right)) 0
+    max(var(--sl-gutter), env(safe-area-inset-left));
+  border-bottom: 1px solid color-mix(in srgb, var(--color-line) 70%, transparent);
+  background: color-mix(in srgb, var(--color-paper) 88%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+}
+.sl-status {
+  display: none;
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--color-forest);
+  color: var(--color-card);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ body, main */
+.sl-body {
+  padding: 0 max(var(--sl-gutter), env(safe-area-inset-right)) 0 max(var(--sl-gutter), env(safe-area-inset-left));
+}
+.sl-main {
+  min-width: 0;
+  /* Room for the button that opens the controls. */
+  padding: 16px 0 calc(112px + env(safe-area-inset-bottom));
+}
+.sl-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 24px;
+}
+.sl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  color: var(--color-mute);
+  font-size: 0.75rem;
+}
+
+/* Places per field, which is also the field filter. A row that scrolls sideways on phones. */
+.sl-places {
+  margin-top: 16px;
+}
+.sl-fields {
+  display: flex;
+  gap: 8px;
+  margin: 10px calc(-1 * var(--sl-gutter)) 0;
+  padding: 2px var(--sl-gutter) 6px;
+  overflow-x: auto;
+  scroll-padding-inline: var(--sl-gutter);
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.sl-fields::-webkit-scrollbar {
+  display: none;
+}
+.sl-field {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 148px;
+  min-height: 60px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  text-align: left;
+  scroll-snap-align: start;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
+}
+.sl-field:active {
+  transform: scale(0.97);
+}
+.sl-field[aria-pressed='true'] {
+  border-color: var(--color-forest);
+  background: var(--color-forest);
+  color: var(--color-card);
+}
+.sl-field-name {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.sl-field-meta {
+  color: var(--color-mute);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sl-field[aria-pressed='true'] .sl-field-meta {
+  color: rgb(255 255 255 / 0.72);
+}
+
+/* ------------------------------------------------------------- the cards */
+.sl-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.sl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-line);
+  border-radius: 22px;
+  background: var(--color-card);
+  box-shadow: var(--sl-shadow);
+}
+.sl-parts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.sl-source {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.sl-note {
+  margin-top: 24px;
+  padding: 28px 20px;
+  border: 1px dashed var(--color-line);
+  border-radius: 22px;
+  background: var(--color-card);
+  text-align: center;
+}
+.sl-header + .sl-note,
+.sl-header + p {
+  margin-inline: var(--sl-gutter);
+}
+
+/* ---------------------------------------------------------- the controls */
+.sl-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 0;
+}
+.sl-panel + .sl-panel {
+  border-top: 1px solid var(--color-line);
+}
+.sl-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 5.5em;
+  align-items: center;
+  gap: 8px;
+}
+.sl-count.soap-bubble-button {
+  padding: 0 0.5em;
+  font-variant-numeric: tabular-nums;
+}
+.sl-number {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-card);
+  font-variant-numeric: tabular-nums;
+}
+.sl-select-wrap {
+  position: relative;
+  margin-top: 6px;
+}
+.sl-select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 40px 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.sl-select-icon {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  color: var(--color-forest);
+  pointer-events: none;
+}
+.sl-number:focus-visible,
+.sl-select:focus-visible,
+.sl-field:focus-visible,
+.sl-source:focus-visible {
+  outline: 2px solid var(--color-forest);
+  outline-offset: 2px;
+}
+.sl-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sl-slider {
+  color: var(--color-forest);
+}
+/* Without WebGL the bubble slider draws no track (its canvas stays hidden): draw it here. */
+.sl-slider:not([data-soap-bubble-ready])::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--color-forest), var(--color-lime)) 0 0 / var(--sl-fill, 50%) 100% no-repeat,
+    rgb(120 120 128 / 0.2);
+}
+.sl-reset.soap-bubble-button {
+  align-self: flex-start;
+  color: var(--color-forest);
+  font-size: 0.875rem;
+}
+.sl-reset svg {
+  width: 1em;
+  height: 1em;
+}
+
+/* The bottom sheet (below 1024 px). */
+.sl-controls {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  max-width: 40rem;
+  max-height: min(88dvh, 820px);
+  margin-inline: auto;
+  padding: 0 max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom))
+    max(20px, env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 28px 28px 0 0;
+  background: var(--color-card);
+  box-shadow: 0 -24px 60px -20px rgb(17 32 28 / 0.35);
+  transform: translateY(calc(100% + 32px));
+  visibility: hidden;
+  transition:
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s 0.34s;
+}
+.sl-controls[data-open] {
+  transform: none;
+  visibility: visible;
+  transition:
+    transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s;
+}
+.sl-sheet-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 -4px;
+  padding: 22px 4px 12px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-card);
+}
+.sl-grabber {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 40px;
+  height: 5px;
+  margin-left: -20px;
+  border-radius: 999px;
+  background: var(--color-line);
+}
+.sl-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(17 32 28 / 0.32);
+  touch-action: none;
+}
+.sl-scrim[hidden] {
+  display: none;
+}
+.sl-tune {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 35;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px max(16px, env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+.sl-tune-button.soap-bubble-button {
+  min-height: 52px;
+  padding: 0 10px 0 20px;
+  color: var(--color-forest);
+  font-size: 1rem;
+  pointer-events: auto;
+}
+.sl-tune-count {
+  display: inline-grid;
+  min-width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--color-forest);
+  color: var(--color-lime);
+  font-size: 0.875rem;
+}
+
+/* ------------------------------------------------------- tablets, desktop */
+@media (min-width: 640px) {
+  .sl {
+    --sl-gutter: 24px;
+  }
+  .sl-status {
+    display: block;
+  }
+  .sl-cards {
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .sl {
+    --sl-gutter: 24px;
+    --sl-head: 76px;
+  }
+  .sl-body {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    align-items: start;
+    gap: 28px;
+    max-width: 2200px;
+    margin-inline: auto;
+  }
+  .sl-main {
+    padding: 24px 0 48px;
+  }
+  /* The rail: the same controls, sticky beside the applicants and scrolling on their own. */
+  .sl-controls {
+    position: sticky;
+    top: var(--sl-head);
+    z-index: 1;
+    max-width: none;
+    max-height: calc(100dvh - var(--sl-head));
+    margin: 0;
+    padding: 6px 4px 24px;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+    visibility: visible;
+    transition: none;
+    scrollbar-width: thin;
+  }
+  .sl-sheet-head,
+  .sl-scrim,
+  .sl-tune {
+    display: none;
+  }
+  .sl-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    margin: 10px 0 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .sl-field {
+    min-width: 0;
+  }
+  .sl-field-name {
+    white-space: normal;
+  }
+}
+
+@media (min-width: 1280px) {
+  .sl {
+    --sl-gutter: 32px;
+  }
+  .sl-body {
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 40px;
+  }
+}
+
+@supports (corner-shape: squircle) {
+  .sl-card,
+  .sl-note {
+    border-radius: 30px;
+    corner-shape: squircle;
+  }
+  .sl-field,
+  .sl-select {
+    border-radius: 22px;
+    corner-shape: squircle;
+  }
+  .sl-controls {
+    corner-shape: squircle;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-controls,
+  .sl-controls[data-open],
+  .sl-field {
+    transition: none;
+  }
+}

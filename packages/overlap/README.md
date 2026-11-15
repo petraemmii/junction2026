@@ -75,8 +75,17 @@ secret of the Worker (see [Deploying](#deploying)). `PUBLIC_PRESELECT_URL` decid
   shortlist says there is no backend.
 
 The app's company side opens the event's shortlist ("Pick who gets a place" on its events page,
-`apps/app/src/screens/Shortlist.tsx`): the organiser view's sliders and applicant cards in the
-app's design. It reads the applicants from `GET /api/organiser` (`VITE_PRESELECT_URL`,
+`apps/app/src/screens/Shortlist.tsx`, layout in `shortlist.css`): everything the organiser view
+has, in the landing page's tone. Its controls are the landing page's Bubble UI glass components
+(`apps/landing/src/components/soap-bubble/`, with the hero's approved `GLASS` material and
+`PALETTE` from `src/components/landing/settings.ts`), imported from the landing package as they
+are; `resolve.dedupe` in `apps/app/vite.config.ts` keeps one React in the bundle (the two packages
+depend on different React versions). They get no `backdrop`: a captured backdrop is drawn with
+html-to-image as `data:`/`blob:` images, which the `/app/` page's CSP does not allow, so the policy
+is unchanged. Without WebGL the controls fall back to plain CSS and still work. From 1024 px the
+screen is a dashboard (sticky header and control rail, places per field as the field filter, the
+applicants in a grid that adds columns with the width); below that the applicants come first and the
+controls open in a bottom sheet. It reads the applicants from `GET /api/organiser` (`VITE_PRESELECT_URL`,
 http://localhost:4322 in development) and scores them with the pre-selection app's own code
 (`apps/preselect/src/lib`). `build:site` builds the app with `VITE_PRESELECT_URL` set to the same
 backend as the landing page: `/submission/preselect` on its own origin when the backend is bundled
@@ -289,7 +298,8 @@ peers), and those plugins would run on a second Vite copy next to Astro's.
 kept byte-identical to their registry source and excluded from `vp fmt` and `vp lint` (root
 `vite.config.ts`). Do not edit them. Their licence (ReactDrops Component License 1.0, header of
 each file) allows using them inside this end product, but not redistributing them as a component
-kit. The shadcn CLI strips that header, so after `shadcn add` restore the files from the
+kit. The app's shortlist uses the Soap Bubble components from here (imported across packages,
+not copied). The shadcn CLI strips that header, so after `shadcn add` restore the files from the
 registry JSON (`files[].content`).
 
 `apps/landing/src/lib/island/` (the engine) and `apps/landing/src/components/islandcn/` (the

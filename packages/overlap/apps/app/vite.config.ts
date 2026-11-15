@@ -33,6 +33,10 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
+      // The shortlist uses the landing page's Bubble UI components (apps/landing), which import React
+      // from the landing package, where it is another version. One React for the whole bundle: two
+      // would break every hook in those components.
+      dedupe: ['react', 'react-dom'],
     },
     server: {
       host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',

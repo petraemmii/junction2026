@@ -1,15 +1,28 @@
 // The company side's shortlist for the real event: the pre-selection backend's applicants, scored in
 // the browser with the backend's own code (apps/preselect/src/lib) as the sliders move. The same
-// tool as the backend's organiser view, in this app's design.
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import { RotateCcw, Sparkles, Users } from 'lucide-react'
+// tool as the backend's organiser view, in the landing page's tone: its Bubble UI glass controls
+// (ReactDrops Soap Bubble, used from apps/landing as they are) with the hero's approved material.
+//
+// One set of controls serves both layouts (shortlist.css): from 1024 px a sticky rail beside the
+// applicants, below that a bottom sheet opened from a button at the foot of the screen.
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { ArrowLeft, ChevronDown, RotateCcw, SlidersHorizontal, Sparkles, X } from 'lucide-react'
+import { GLASS, PALETTE } from '../../../landing/src/components/landing/settings.ts'
+import {
+  SoapBubbleButton,
+  SoapBubbleIconButton,
+  SoapBubbleMaterial,
+  SoapBubbleSlider,
+} from '../../../landing/src/components/soap-bubble/index.ts'
 import { DEFAULT_SETTINGS, fieldShares, select } from '../../../preselect/src/lib/scoring.ts'
 import { FIELDS, FIELD_BY_ID, TOOLS } from '../../../preselect/src/lib/taxonomy.ts'
 import { traits } from '../../../preselect/src/lib/traits.ts'
 import { SLIDER_IDS } from '../../../preselect/src/lib/types.ts'
 import type { FieldId, Settings, SliderId } from '../../../preselect/src/lib/types.ts'
 import { useOrganiserData, type OrganiserData } from '../lib/preselect'
-import { Card, Chip, Ring, Tag, TopBar, cx } from '../ui'
+import { useStore } from '../lib/store'
+import { Ring, Tag, cx } from '../ui'
+import './shortlist.css'
 
 const SLIDERS: Record<SliderId, { label: string; hint: string }> = {
   experience: { label: 'Work experience', hint: 'Years of work, or of public activity when no work history is given.' },
@@ -37,38 +50,80 @@ const SKILL_GROUPS = FIELDS.map((field) => ({
 }))
 
 // Seen in a portfolio, or only stated by the applicant.
-const BASIS_DOT = { verified: 'bg-[#1f9d6b]', claimed: 'bg-coral' } as const
+const BASIS_DOT = { verified: 'bg-good', claimed: 'bg-coral' } as const
 
-function Shell({ children }: { children: ReactNode }) {
+// The rail and the sheet are one element; which one it is follows this media query (shortlist.css).
+const DESKTOP = '(min-width: 1024px)'
+
+function useMedia(query: string) {
+  const [matches, setMatches] = useState(() => matchMedia(query).matches)
+  useEffect(() => {
+    const list = matchMedia(query)
+    const read = () => setMatches(list.matches)
+    read()
+    list.addEventListener('change', read)
+    return () => list.removeEventListener('change', read)
+  }, [query])
+  return matches
+}
+
+function Shell({
+  children,
+  context = 'Shortlist',
+  status,
+}: {
+  children: ReactNode
+  context?: string
+  status?: ReactNode
+}) {
+  const store = useStore()
   return (
-    <div className="mx-auto min-h-dvh max-w-6xl bg-paper px-4 pb-12">
-      <TopBar title="Shortlist" back />
-      {children}
-    </div>
+    // One material for every glass control on the screen. No `backdrop`: a captured backdrop is an
+    // html-to-image rendering (data: and blob: images the app's CSP does not allow), and these
+    // controls sit on the plain paper, where the live page showing through looks the same.
+    <SoapBubbleMaterial {...GLASS}>
+      <div className="sl">
+        <header className="sl-header">
+          <SoapBubbleIconButton aria-label="Back" onClick={store.back}>
+            <ArrowLeft aria-hidden="true" />
+          </SoapBubbleIconButton>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium text-mute">{context}</p>
+            <h1 className="truncate font-display text-xl font-extrabold leading-tight lg:text-2xl">
+              Pick who gets a place
+            </h1>
+          </div>
+          {status}
+        </header>
+        {children}
+      </div>
+    </SoapBubbleMaterial>
   )
 }
 
 function Slider(props: { id: SliderId; value: number; onChange: (value: number) => void; children?: ReactNode }) {
   const { label, hint } = SLIDERS[props.id]
+  const fraction = props.value / 100
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={`slider-${props.id}`} className="font-display font-bold">
-          {label}
-        </label>
+    <div className="sl-slider-row">
+      <div className="flex items-baseline justify-between gap-2" aria-hidden="true">
+        <span className="font-display font-bold">{label}</span>
         <span className="text-sm font-medium tabular-nums text-mute">
           {props.value === 0 ? 'ignored' : props.value}
         </span>
       </div>
-      <input
-        id={`slider-${props.id}`}
-        type="range"
+      <SoapBubbleSlider
+        className="sl-slider"
+        label={label}
+        value={props.value}
         min={0}
         max={100}
         step={5}
-        value={props.value}
-        onChange={(e) => props.onChange(Number(e.target.value))}
-        style={{ '--p': `${props.value}%` } as CSSProperties}
+        onValueChange={props.onChange}
+        from={PALETTE.forest}
+        to={PALETTE.lime}
+        // Where the fill ends, for the track drawn without WebGL (shortlist.css): the thumb's centre.
+        style={{ '--sl-fill': `calc(19px + ${fraction} * (100% - 38px))` } as CSSProperties}
       />
       <p className="text-xs text-mute">{hint}</p>
       {props.children}
@@ -78,9 +133,11 @@ function Slider(props: { id: SliderId; value: number; onChange: (value: number) 
 
 function Bar({ value, tone = 'forest' }: { value: number; tone?: 'forest' | 'lime' }) {
   return (
-    <span className={cx('block h-2 w-full overflow-hidden rounded-full', tone === 'lime' ? 'bg-white/15' : 'bg-line')}>
+    <span
+      className={cx('block h-1.5 w-full overflow-hidden rounded-full', tone === 'lime' ? 'bg-white/20' : 'bg-line')}
+    >
       <span
-        className={cx('grow block h-full rounded-full', tone === 'lime' ? 'bg-lime' : 'bg-forest')}
+        className={cx('block h-full rounded-full', tone === 'lime' ? 'bg-lime' : 'bg-forest')}
         style={{ width: `${Math.round(value * 100)}%` }}
       />
     </span>
@@ -92,16 +149,18 @@ export function Shortlist() {
   if (state.status === 'loading')
     return (
       <Shell>
-        <p className="mt-10 text-center text-sm text-mute">Loading the applicants…</p>
+        <p role="status" className="mt-16 text-center text-sm text-mute">
+          Loading the applicants…
+        </p>
       </Shell>
     )
   if (state.status === 'error')
     return (
       <Shell>
-        <Card className="mt-6 text-center">
+        <div role="alert" className="sl-note">
           <p className="font-display text-lg font-bold">The applicants could not be loaded</p>
           <p className="mt-1 text-sm text-mute">{state.reason}</p>
-        </Card>
+        </div>
       </Shell>
     )
   return <Organiser data={state.data} />
@@ -111,10 +170,16 @@ function Organiser({ data }: { data: OrganiserData }) {
   const { applicants, companies, event } = data
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [shown, setShown] = useState<FieldId | 'all'>('all')
+  const desktop = useMedia(DESKTOP)
+  const [open, setOpen] = useState(false)
+  const sheetOpen = open && !desktop
 
+  // The controls answer at once; the list follows as soon as the browser has a moment, so a slider
+  // stays smooth over 170 cards. The ranking is the same, only drawn a frame later.
+  const scored = useDeferredValue(settings)
   const classified = useMemo(() => companies.filter((c) => c.status === 'ok'), [companies])
   const shares = useMemo(() => fieldShares(classified), [classified])
-  const selection = useMemo(() => select(applicants, settings, shares), [applicants, settings, shares])
+  const selection = useMemo(() => select(applicants, scored, shares), [applicants, scored, shares])
   const readable = applicants.filter((a) => a.sources.some((s) => s.ok)).length
   const maxShare = Math.max(...FIELDS.map((f) => shares[f.id]))
 
@@ -125,45 +190,94 @@ function Organiser({ data }: { data: OrganiserData }) {
 
   const perField = (field: FieldId) => selection.suggestions.filter((s) => s.field === field).length
   const visible = selection.suggestions.filter((s) => shown === 'all' || s.field === shown)
+  const suggested = selection.suggestions.length
+
+  // The sheet: Escape closes it, focus moves into it and back to the button that opened it.
+  const opener = useRef<HTMLButtonElement>(null)
+  const closer = useRef<HTMLButtonElement>(null)
+  const wasOpen = useRef(false)
+  useEffect(() => {
+    if (sheetOpen) closer.current?.focus({ preventScroll: true })
+    else if (wasOpen.current && !desktop) opener.current?.focus({ preventScroll: true })
+    wasOpen.current = sheetOpen
+    if (!sheetOpen) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [sheetOpen, desktop])
+
+  const count = (
+    <span className="tabular-nums">
+      <strong className="font-display text-base">{suggested}</strong> suggested
+    </span>
+  )
 
   return (
-    <Shell>
-      <div className="mb-5 mt-1">
-        <Tag tone="lime">
-          <Users size={12} />
-          {event} · {classified.length} companies
-        </Tag>
-        <h1 className="mt-2 font-display text-3xl font-extrabold leading-tight">Pick who gets a place</h1>
-        <p className="mt-1 text-sm text-mute">
-          {selection.suggestions.length} suggested of {readable} applicants with readable portfolios. This is a
-          suggestion: you decide who gets a place.
-        </p>
-      </div>
+    <Shell context={`${event} · ${classified.length} companies`} status={<p className="sl-status">{count}</p>}>
+      <p className="sr-only" aria-live="polite">
+        {suggested} suggested
+      </p>
+      <div className="sl-body">
+        <aside
+          id="sl-controls"
+          className="sl-controls"
+          data-open={sheetOpen || undefined}
+          aria-labelledby="sl-controls-title"
+          role={desktop ? undefined : 'dialog'}
+          aria-modal={desktop ? undefined : true}
+          inert={!desktop && !open}
+        >
+          <div className="sl-sheet-head">
+            <span className="sl-grabber" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <h2 id="sl-controls-title" className="font-display text-lg font-bold">
+                Tune the ranking
+              </h2>
+              <p className="text-sm text-mute">
+                {count} of {readable}
+              </p>
+            </div>
+            <SoapBubbleIconButton ref={closer} aria-label="Close the settings" onClick={() => setOpen(false)}>
+              <X aria-hidden="true" />
+            </SoapBubbleIconButton>
+          </div>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-        <aside className="flex w-full shrink-0 flex-col gap-4 lg:sticky lg:top-16 lg:w-80">
-          <Card className="rise">
-            <h2 className="font-display text-lg font-bold">How many should we suggest?</h2>
-            <div className="mt-3 flex gap-2">
-              {COUNTS.map((count) => (
-                <Chip key={count} small on={settings.count === count} onClick={() => setCount(count)}>
-                  {count}
-                </Chip>
+          <section className="sl-panel" aria-labelledby="sl-count-title">
+            <h2 id="sl-count-title" className="font-display text-lg font-bold">
+              How many should we suggest?
+            </h2>
+            <div className="sl-counts">
+              {COUNTS.map((n) => (
+                <SoapBubbleButton
+                  key={n}
+                  className="sl-count"
+                  aria-pressed={settings.count === n}
+                  tint={settings.count === n ? PALETTE.limeRgb : undefined}
+                  opacity={settings.count === n ? 0.92 : undefined}
+                  onClick={() => setCount(n)}
+                >
+                  {n}
+                </SoapBubbleButton>
               ))}
               <input
                 type="number"
                 min={1}
+                inputMode="numeric"
                 aria-label="Other number of applicants"
                 value={settings.count}
                 onChange={(e) => setCount(Number(e.target.value))}
-                className="w-20 rounded-full border border-line bg-card px-3 py-1 text-xs font-medium tabular-nums"
+                className="sl-number"
               />
             </div>
-          </Card>
+          </section>
 
-          <Card className="rise flex flex-col gap-4">
+          <section className="sl-panel" aria-labelledby="sl-weights-title">
             <div>
-              <h2 className="font-display text-lg font-bold">What matters most?</h2>
+              <h2 id="sl-weights-title" className="font-display text-lg font-bold">
+                What matters most?
+              </h2>
               <p className="text-xs text-mute">
                 Move a slider to the right to make it count more. The details behind each one are worked out for you.
               </p>
@@ -171,167 +285,222 @@ function Organiser({ data }: { data: OrganiserData }) {
             {SLIDER_IDS.map((id) => (
               <Slider key={id} id={id} value={settings.weights[id]} onChange={(value) => setWeight(id, value)}>
                 {id === 'toolDepth' && (
-                  <select
-                    aria-label="Skill to look at"
-                    value={settings.focusTool ?? ''}
-                    onChange={(e) => setSettings((s) => ({ ...s, focusTool: e.target.value || null }))}
-                    className="mt-2 w-full rounded-2xl border border-line bg-card px-3 py-2 text-sm"
-                  >
-                    <option value="">Each applicant's strongest skill</option>
-                    {SKILL_GROUPS.map(({ field, skills }) => (
-                      <optgroup key={field.id} label={field.short}>
-                        {skills.map((skill) => (
-                          <option key={skill} value={skill}>
-                            {skill}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                  // A native select: the skills come in groups by field, which the bubble menu (a flat
+                  // list of actions) cannot hold, and phones show their own picker for it.
+                  <div className="sl-select-wrap">
+                    <select
+                      aria-label="Skill to look at"
+                      value={settings.focusTool ?? ''}
+                      onChange={(e) => setSettings((s) => ({ ...s, focusTool: e.target.value || null }))}
+                      className="sl-select"
+                    >
+                      <option value="">Each applicant's strongest skill</option>
+                      {SKILL_GROUPS.map(({ field, skills }) => (
+                        <optgroup key={field.id} label={field.short}>
+                          {skills.map((skill) => (
+                            <option key={skill} value={skill}>
+                              {skill}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <ChevronDown className="sl-select-icon" aria-hidden="true" />
+                  </div>
                 )}
               </Slider>
             ))}
-            <button
-              type="button"
+            <SoapBubbleButton
+              className="sl-reset"
               onClick={() => setSettings((s) => ({ ...DEFAULT_SETTINGS, count: s.count }))}
-              className="flex items-center gap-1.5 self-start text-sm font-medium text-forest underline"
             >
-              <RotateCcw size={14} />
+              <RotateCcw aria-hidden="true" />
               Reset sliders
-            </button>
-          </Card>
+            </SoapBubbleButton>
+          </section>
+        </aside>
 
-          <Card className="rise !border-forest !bg-forest text-white">
-            <h2 className="font-display text-lg font-bold">Places per field</h2>
-            <p className="text-xs text-white/70">
+        <div className="sl-scrim" hidden={!sheetOpen} onClick={() => setOpen(false)} aria-hidden="true" />
+
+        <main className="sl-main">
+          <div className="sl-intro">
+            <div className="min-w-0">
+              <p className="text-sm text-mute">
+                {suggested} suggested of {readable} applicants with readable portfolios. This is a suggestion: you
+                decide who gets a place.
+              </p>
+            </div>
+            <div className="sl-legend">
+              <span className="flex items-center gap-1.5">
+                <span className={cx('size-2 rounded-full', BASIS_DOT.verified)} /> seen in a portfolio
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className={cx('size-2 rounded-full', BASIS_DOT.claimed)} /> stated by the applicant
+              </span>
+            </div>
+          </div>
+
+          <section className="sl-places" aria-labelledby="sl-places-title">
+            <h2 id="sl-places-title" className="font-display text-base font-bold">
+              Places per field
+            </h2>
+            <div className="sl-fields" role="group" aria-label="Show the applicants of one field">
+              <button type="button" className="sl-field" aria-pressed={shown === 'all'} onClick={() => setShown('all')}>
+                <span className="sl-field-name">All fields</span>
+                <span className="sl-field-meta">
+                  {suggested} of {readable} readable
+                </span>
+              </button>
+              {FIELDS.map((field) => (
+                <button
+                  key={field.id}
+                  type="button"
+                  className="sl-field"
+                  aria-pressed={shown === field.id}
+                  onClick={() => setShown(field.id)}
+                >
+                  <span className="sl-field-name">{field.short}</span>
+                  <span className="sl-field-meta">
+                    {perField(field.id)} of {selection.pool[field.id]} · {Math.round(shares[field.id] * 100)}%
+                  </span>
+                  <Bar value={shares[field.id] / maxShare} tone={shown === field.id ? 'lime' : 'forest'} />
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-mute">
               {classified.length
                 ? `Split by the fields of the ${classified.length} participating companies. A field with too few suitable applicants passes its places on.`
                 : 'No company data yet: every field gets an equal share.'}
             </p>
-            <ul className="mt-3 flex flex-col gap-2.5">
-              {FIELDS.map((field) => (
-                <li key={field.id} className="text-xs">
-                  <div className="mb-1 flex justify-between gap-2">
-                    <span className="font-medium">{field.short}</span>
-                    <span className="tabular-nums text-white/70">
-                      {perField(field.id)} of {selection.pool[field.id]} · {Math.round(shares[field.id] * 100)}%
-                    </span>
-                  </div>
-                  <Bar value={shares[field.id] / maxShare} tone="lime" />
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </aside>
-
-        <main className="min-w-0 flex-1">
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0">
-            {(['all', ...FIELDS.map((f) => f.id)] as const).map((id) => (
-              <Chip key={id} small on={shown === id} onClick={() => setShown(id)}>
-                <span className="whitespace-nowrap">
-                  {id === 'all' ? 'All fields' : FIELD_BY_ID[id].short} ·{' '}
-                  {id === 'all' ? selection.suggestions.length : perField(id)}
-                </span>
-              </Chip>
-            ))}
-          </div>
-          <div className="mt-3 flex gap-4 text-xs text-mute">
-            <span className="flex items-center gap-1.5">
-              <span className={cx('size-2 rounded-full', BASIS_DOT.verified)} /> seen in a portfolio
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className={cx('size-2 rounded-full', BASIS_DOT.claimed)} /> stated by the applicant
-            </span>
-          </div>
+          </section>
 
           {visible.length === 0 ? (
-            <Card className="mt-4 text-center">
-              <p className="font-display text-lg font-bold">
-                {applicants.length ? 'No applicant scores above zero' : 'No applicants yet'}
-              </p>
-              <p className="mt-1 text-sm text-mute">
-                {applicants.length
-                  ? 'Move the sliders to see more.'
-                  : 'Profiles sent from the landing page appear here.'}
-              </p>
-            </Card>
+            <div className="sl-note">
+              {shown !== 'all' && suggested > 0 ? (
+                <>
+                  <p className="font-display text-lg font-bold">No one suggested in {FIELD_BY_ID[shown].short}</p>
+                  <p className="mt-1 text-sm text-mute">Its places went to other fields with these settings.</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-display text-lg font-bold">
+                    {applicants.length ? 'No applicant scores above zero' : 'No applicants yet'}
+                  </p>
+                  <p className="mt-1 text-sm text-mute">
+                    {applicants.length
+                      ? 'Move the sliders to see more.'
+                      : 'Profiles sent from the landing page appear here.'}
+                  </p>
+                </>
+              )}
+            </div>
           ) : (
-            <ul className="mt-4 grid gap-3 xl:grid-cols-2">
+            <ul className="sl-cards">
               {visible.map((s, index) => (
-                <li key={s.applicant.id}>
-                  <Card className="flex h-full flex-col gap-3">
-                    <div className="flex items-start gap-3">
-                      <span className="w-6 pt-1 text-center font-display font-bold text-mute">{index + 1}</span>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-display text-lg font-bold leading-tight">{s.applicant.alias}</h3>
-                        <p className="mt-0.5 text-xs text-mute">
-                          {FIELD_BY_ID[s.field].name}
-                          {s.overflow && ' · place passed on from another field'}
-                        </p>
-                        {s.applicant.priority && (
-                          <div className="mt-1.5">
-                            <Tag tone="lime">
-                              <Sparkles size={12} />
-                              Priority: {s.applicant.priority.reasons.join(' · ')}
-                            </Tag>
-                          </div>
-                        )}
+                <li key={s.applicant.id} className="sl-card">
+                  <div className="flex items-start gap-3">
+                    <span className="w-7 shrink-0 pt-0.5 font-display text-lg font-bold tabular-nums text-mute">
+                      <span className="sr-only">Rank </span>
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-display text-lg font-bold leading-tight">{s.applicant.alias}</h3>
+                      <p className="mt-0.5 text-xs text-mute">
+                        {FIELD_BY_ID[s.field].name}
+                        {s.overflow && ' · place passed on from another field'}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-center">
+                      <div className="sl-score" aria-label={`Fit ${Math.round(s.score)} of 100`}>
+                        <Ring value={Math.round(s.score)} size={52} />
                       </div>
-                      <Ring value={Math.round(s.score)} size={52} />
+                      <span className="mt-0.5 text-[10px] text-mute" aria-hidden="true">
+                        fit, 0 to 100
+                      </span>
                     </div>
-
-                    <ul className="flex flex-col gap-1.5 text-sm">
-                      {traits(s.applicant.signals, s.field, settings, s.parts, s.applicant.companies).map((trait) => (
-                        <li key={trait.text} className="flex gap-2">
-                          <span className={cx('mt-1.5 size-2 shrink-0 rounded-full', BASIS_DOT[trait.basis])} />
-                          <span>{trait.text}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <div className="mt-auto grid grid-cols-3 gap-x-3 gap-y-2 pt-1 sm:grid-cols-6">
-                      {SLIDER_IDS.map((id) => (
-                        <div key={id} title={`${SLIDERS[id].label}: ${Math.round(s.parts[id] * 100)} of 100`}>
-                          <Bar value={s.parts[id]} />
-                          <p className="mt-1 truncate text-[10px] text-mute">{SLIDERS[id].label}</p>
-                        </div>
-                      ))}
+                  </div>
+                  {s.applicant.priority && (
+                    <div>
+                      <Tag tone="lime">
+                        <Sparkles size={12} />
+                        Priority: {s.applicant.priority.reasons.join(' · ')}
+                      </Tag>
                     </div>
+                  )}
 
-                    <div className="flex flex-wrap gap-1.5 border-t border-line pt-3">
-                      {s.applicant.sources.map((source) =>
-                        source.ok ? (
-                          <a
-                            key={source.url ?? source.label}
-                            href={source.url ?? undefined}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={cx(
-                              'rounded-full px-2.5 py-1 text-xs font-medium',
-                              source.basis === 'verified'
-                                ? 'bg-[#1f9d6b]/12 text-[#14704c]'
-                                : 'bg-coral/15 text-[#b4391b]',
-                            )}
-                          >
-                            {source.label}
-                          </a>
-                        ) : (
-                          <span
-                            key={source.url ?? source.label}
-                            title={source.error}
-                            className="rounded-full bg-ink/6 px-2.5 py-1 text-xs text-mute line-through"
-                          >
-                            {source.label}
+                  <ul className="flex flex-col gap-1.5 text-sm">
+                    {traits(s.applicant.signals, s.field, scored, s.parts, s.applicant.companies).map((trait) => (
+                      <li key={trait.text} className="flex gap-2">
+                        <span className={cx('mt-1.5 size-2 shrink-0 rounded-full', BASIS_DOT[trait.basis])} />
+                        <span>
+                          <span className="sr-only">
+                            {trait.basis === 'verified' ? 'Seen in a portfolio: ' : 'Stated by the applicant: '}
                           </span>
-                        ),
-                      )}
-                    </div>
-                  </Card>
+                          {trait.text}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="sl-parts">
+                    {SLIDER_IDS.map((id) => (
+                      <div key={id} title={`${SLIDERS[id].label}: ${Math.round(s.parts[id] * 100)} of 100`}>
+                        <Bar value={s.parts[id]} />
+                        <p className="mt-1 text-[10px] leading-tight text-mute">
+                          {SLIDERS[id].label}
+                          <span className="sr-only">: {Math.round(s.parts[id] * 100)} of 100</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 border-t border-line pt-3">
+                    {s.applicant.sources.map((source) =>
+                      source.ok ? (
+                        <a
+                          key={source.url ?? source.label}
+                          href={source.url ?? undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={cx(
+                            'sl-source',
+                            source.basis === 'verified' ? 'bg-good/12 text-[#14704c]' : 'bg-coral/15 text-[#b4391b]',
+                          )}
+                        >
+                          {source.label}
+                        </a>
+                      ) : (
+                        <span
+                          key={source.url ?? source.label}
+                          title={source.error}
+                          className="sl-source bg-ink/6 text-mute line-through"
+                        >
+                          {source.label}
+                        </span>
+                      ),
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </main>
+      </div>
+
+      <div className="sl-tune">
+        <SoapBubbleButton
+          ref={opener}
+          className="sl-tune-button"
+          tint={PALETTE.limeRgb}
+          opacity={0.92}
+          aria-controls="sl-controls"
+          aria-expanded={sheetOpen}
+          onClick={() => setOpen(true)}
+        >
+          <SlidersHorizontal aria-hidden="true" />
+          Tune the ranking
+          <span className="sl-tune-count tabular-nums">{suggested}</span>
+        </SoapBubbleButton>
       </div>
     </Shell>
   )
