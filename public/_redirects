@@ -2,9 +2,12 @@
 # served itself. One rule per line: source, destination, status.
 # https://developers.cloudflare.com/workers/static-assets/redirects/
 
-# Short addresses of our submission, Overlap (the Worker overlap-landing at /submission). 301 is
+# A short address of our submission, Overlap (the Worker overlap-landing at /submission). 301 is
 # a permanent redirect: search engines pass the address's links and ranking on to /submission.
 /winners /submission 301
 /winners/ /submission 301
-/live /submission 301
-/live/ /submission 301
+
+# The live stream on YouTube. 302, a temporary redirect: browsers do not remember it, so a new
+# stream address here reaches everyone at once.
+/live https://www.youtube.com/watch?v=nYNQgYVjsHo 302
+/live/ https://www.youtube.com/watch?v=nYNQgYVjsHo 302
