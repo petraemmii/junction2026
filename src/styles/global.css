@@ -25,6 +25,8 @@
 @source not "../components/TeamCountStyles.astro";
 /* And for the Community tag in the header (scoped <style>). */
 @source not "../components/CommunityTag.astro";
+/* And for the wordmark in the header (scoped <style>). */
+@source not "../components/Wordmark.astro";
 
 @theme inline {
   --font-display: var(--font-titillium-web);

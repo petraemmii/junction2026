@@ -1,0 +1,106 @@
+---
+// "JUNCTION 2026" in the lettering of the Junction logo, as two inline SVGs (one per word): the
+// wordmark in the site header. The logo has only the letters of JUNCTION; they are redrawn here
+// from its picture, and the digits are drawn on the same construction, the 0 being the O.
+//
+// Each word is an inline box that stands on the text baseline of the line it is in, so the
+// letters stand where the capitals of the surrounding text would, whatever its font. Size
+// comes from the font size there: the capitals are --cap high (see the styles below), and the
+// gap between the words is the capital height. The words are also in the markup as text,
+// hidden from sight (.wm-text).
+//
+// Glyphs are lists of corners, in units where the capital height is 534: stems are 88 wide,
+// bars 77 thick and a wide letter 456 or 457, as measured. A corner marked "r" is an outer
+// corner and becomes an arc of radius 76; every other corner is sharp. A stroke that turns a
+// corner and stops (the two ends of the C, the hook of the J, the tops of the 2 and the 6)
+// ends 153 from the edge.
+// Each glyph: width, space kept on its left and on its right, then one corner list per outline.
+// Outlines run clockwise; the second one of the O and the 6 is the hole (fill-rule evenodd).
+const CAP = 534;
+const RADIUS = 76;
+const glyphs: Record<string, [width: number, left: number, right: number, ...outlines: string[]]> = {
+  J: [381, 100.5, 100.5, "293,0 381,0 381,534r 0,534r 0,381 88,381 88,457 293,457"],
+  U: [456, 100.5, 100.5, "0,0 88,0 88,457 368,457 368,0 456,0 456,534 0,534r"],
+  // The diagonal meets each stem 83 from the end, in a 10 wide step instead of a point.
+  N: [457, 100.5, 100.5, "0,0 153.5,0 359.2,451 369,451 369,0 457,0 457,534 303.5,534 97.8,83 88,83 88,534 0,534"],
+  C: [457, 94.5, 100.5, "0,0r 457,0r 457,153 370,153 370,77 88,77 88,457 370,457 370,381 457,381 457,534r 0,534r"],
+  T: [423, 78.5, 78.5, "0,0 423,0 423,77 255.5,77 255.5,534 167.5,534 167.5,77 0,77"],
+  I: [88, 100.5, 100.5, "0,0 88,0 88,534 0,534"],
+  O: [456, 94.5, 94.5, "0,0r 456,0r 456,534r 0,534r", "88,77 368,77 368,457 88,457"],
+  "2": [456, 94.5, 94.5, "0,153 0,0r 456,0r 456,305.5r 88,305.5 88,457 456,457 456,534 0,534r 0,228.5r 368,228.5 368,77 88,77 88,153"],
+  "6": [456, 94.5, 94.5, "0,0r 456,0r 456,153 368,153 368,77 88,77 88,228.5 456,228.5r 456,534r 0,534r", "88,305.5 368,305.5 368,457 88,457"],
+};
+glyphs["0"] = glyphs.O;
+
+const num = (v: number) => +v.toFixed(1);
+// One outline as path data, moved dx to the right. An "r" corner (always between a horizontal
+// and a vertical edge) is replaced by an arc from RADIUS before it to RADIUS after it.
+const outline = (corners: string, dx: number) => {
+  const pts = corners.split(" ").map((c) => {
+    const [x, y] = c.split(",").map(parseFloat);
+    return { x: x + dx, y, arc: c.endsWith("r") };
+  });
+  const path = pts.map((p, i) => {
+    const cmd = i ? "L" : "M";
+    if (!p.arc) return `${cmd}${num(p.x)} ${num(p.y)}`;
+    const [a, b] = [pts.at(i - 1)!, pts[(i + 1) % pts.length]].map(
+      (q) => `${num(p.x + RADIUS * Math.sign(q.x - p.x))} ${num(p.y + RADIUS * Math.sign(q.y - p.y))}`,
+    );
+    return `${cmd}${a}A${RADIUS} ${RADIUS} 0 0 1 ${b}`;
+  });
+  return path.join("") + "Z";
+};
+// Each word as one path and its width: the glyphs side by side, the space of both neighbours between them.
+const words = ["JUNCTION", "2026"].map((text) => {
+  let x = 0, d = "";
+  [...text].forEach((ch, i) => {
+    const [width, left, right, ...outlines] = glyphs[ch];
+    if (i) x += left;
+    d += outlines.map((o) => outline(o, x)).join("");
+    x += width + (i < text.length - 1 ? right : 0);
+  });
+  return { d, width: x };
+});
+---
+
+<span class="wm-text">JUNCTION 2026</span>{words.map((w) => (
+  <span class="wm" style={`width:calc(var(--cap) * ${(w.width / CAP).toFixed(4)})`}><svg viewBox={`0 0 ${w.width} ${CAP}`} preserveAspectRatio="xMinYMax meet" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d={w.d} /></svg></span>
+))}
+
+<style>
+  /* A word: an inline box of no height, which therefore lies exactly on the baseline, as wide
+     as the word (set in the markup: the word's width in capital heights). A line may break
+     between the two words; the gap is a margin after the first. */
+  .wm {
+    --cap: 0.735em;
+    position: relative;
+    display: inline-block;
+    height: 0;
+    vertical-align: baseline;
+  }
+  .wm:not(:last-child) {
+    margin-right: var(--cap);
+  }
+  /* The drawing stands on the lower edge of a box that rises 1 em from the baseline: it fills
+     the width, which makes it one capital height high (preserveAspectRatio xMinYMax). The box
+     is 1 em and not the capital height so that both its edges are on whole pixels: Chrome
+     paints an SVG from the whole pixel nearest to its upper edge, and with a fraction there
+     the letters would come off the baseline. */
+  .wm svg {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 1em;
+  }
+  /* The words for screen readers and search engines: in the markup, clipped to nothing on
+     screen. */
+  .wm-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>
