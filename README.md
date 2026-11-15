@@ -62,6 +62,8 @@ Two Workers share the domain:
 | `overlap-landing` (Overlap) | the route `junction2026.com/submission*`, which runs in front of the custom domain for `/submission` and everything below it | `packages/overlap/apps/landing/dist/` |
 
 The button in the home page's hero, "View our submission here", links to `/submission`.
+`/winners` and `/live` are short addresses of it: permanent redirects (301) to `/submission`, in
+`public/_redirects`.
 
 To build, check and deploy Overlap (Node.js 22.23.4 or newer and pnpm 10.34.3; Wrangler needs
 the same Cloudflare credentials as above):
@@ -95,6 +97,7 @@ pnpm run deploy:landing  # build:site, then deploy the overlap-landing Worker
 | Fonts and image encoder settings | `astro.config.mjs` |
 | Site icons and the social preview image | `public/favicon.*`, `public/og-image.jpg` (see [Icons and the social preview image](#icons-and-the-social-preview-image)) |
 | Cache and security headers | `public/_headers` |
+| Redirects (`/winners` and `/live` to `/submission`) | `public/_redirects` |
 | Cloudflare configuration | `wrangler.jsonc` |
 | Overlap, our hackathon submission at `/submission` (a separate pnpm workspace) | `packages/overlap/` (see [Overlap, our hackathon submission](#overlap-our-hackathon-submission)) |
 

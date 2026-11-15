@@ -1,0 +1,10 @@
+# Redirects for Cloudflare Workers static assets. This file is parsed by Cloudflare and is not
+# served itself. One rule per line: source, destination, status.
+# https://developers.cloudflare.com/workers/static-assets/redirects/
+
+# Short addresses of our submission, Overlap (the Worker overlap-landing at /submission). 301 is
+# a permanent redirect: search engines pass the address's links and ranking on to /submission.
+/winners /submission 301
+/winners/ /submission 301
+/live /submission 301
+/live/ /submission 301
