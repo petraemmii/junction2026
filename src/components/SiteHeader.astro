@@ -1,8 +1,13 @@
 ---
 import CommunityTag from "./CommunityTag.astro";
+import Wordmark from "./Wordmark.astro";
+
+// The home link is a fixed 10.6 em wide: the wordmark (10.25 em at this font size) and the
+// space kept between it and the Community tag. Its font and line height set the line the
+// wordmark stands on, and the Community tag repeats them to share its baseline.
 ---
 
 <header class="fixed inset-x-0 top-0 z-50 flex items-center justify-between bg-background/70 px-6 py-4 backdrop-blur">
-  <a href="/" class="font-display text-2xl font-light tracking-[0.3em]">JUNCTION 2026</a>
+  <a href="/" class="w-[10.6em] font-display text-2xl font-light"><Wordmark /></a>
   <CommunityTag />
 </header>
