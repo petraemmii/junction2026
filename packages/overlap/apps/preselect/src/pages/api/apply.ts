@@ -9,6 +9,7 @@ import { collectApplicant } from '../../lib/collect.ts'
 import { cors } from '../../lib/cors.ts'
 import { prepareCompanies } from '../../lib/companies.ts'
 import { platformOf } from '../../lib/extract.ts'
+import { MAX_CV_BYTES, MAX_TEXT_CHARS, withinLimits } from '../../lib/limits.ts'
 import { parseLinks } from '../../lib/links.ts'
 import { MAX_READS_PER_HOUR } from '../../lib/storage.ts'
 import { EVENT_NAME } from '../../lib/taxonomy.ts'
@@ -17,7 +18,6 @@ import type { Applicant, FieldId } from '../../lib/types.ts'
 import { toView } from '../../lib/view.ts'
 
 const CV_TYPES = ['pdf', 'docx', 'doc', 'txt', 'md', 'rtf']
-const MAX_CV_BYTES = 10 * 1024 * 1024
 const SOURCE_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
 // Every application spends Context.dev credits, so a runaway script cannot send more than
@@ -93,8 +93,15 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify(body), { status, headers })
   }
 
-  const input = await read(request)
+  // The endpoint is public: a body larger than an application can be is not read to the end.
+  const bounded = await withinLimits(request)
+  if (!bounded) return json({ error: 'The application is too large. A CV can be up to 10 MB.' }, 413)
+
+  const input = await read(bounded)
   if (!input) return json({ error: 'Send the application as JSON or as form data.' }, 400)
+  if (input.text.length > MAX_TEXT_CHARS) {
+    return json({ error: 'That is too much text. Send the links to your work.' }, 400)
+  }
 
   const declaredFields = input.fields.filter((f): f is FieldId => FIELD_IDS.includes(f as FieldId))
   const { links, rejected } = parseLinks(input.text)

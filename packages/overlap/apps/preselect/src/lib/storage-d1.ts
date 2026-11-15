@@ -28,21 +28,44 @@ const SCHEMA = [
 
 const HOUR_MS = 3_600_000
 
+// Every row is read on each organiser page and each application, so a row has a size the server
+// can afford many of (D1's own limit is 2 MB a value). The largest collected so far is 23 KB.
+const MAX_ROW_CHARS = 200_000
+
+/**
+ * The applicant as the JSON of its row. One that is too large loses the converted CV text, which
+ * is kept for review and re-parsing only (nothing reads it back); one still too large is refused.
+ */
+export function applicantRow(applicant: Applicant): string {
+  let data = JSON.stringify(applicant)
+  if (data.length > MAX_ROW_CHARS) {
+    const sources = applicant.sources.map((source) => ({ ...source, markdown: undefined }))
+    data = JSON.stringify({ ...applicant, sources })
+  }
+  if (data.length > MAX_ROW_CHARS) {
+    throw new Error(`Applicant ${applicant.id} is too large to store (${data.length} characters)`)
+  }
+  return data
+}
+
 /**
  * `database` is called on every use, so a missing binding fails the request that needs it, with
  * its own message, rather than the whole Worker at start-up. `companies` is the committed
  * data/companies.json, bundled into the Worker.
  */
 export function d1Storage(database: () => D1, companies: Company[]): Storage {
-  let ready: Promise<unknown> | undefined
-  /** The database, with its tables. A failed attempt is tried again on the next request. */
+  let created = false
+  /**
+   * The database, with its tables. Each request makes its own attempt until one has succeeded: a
+   * promise shared between requests would never settle for the later ones if the request that
+   * started it ended early. Two requests creating the tables at once is harmless.
+   */
   async function open(): Promise<D1> {
     const db = database()
-    ready ??= db.batch(SCHEMA.map((sql) => db.prepare(sql))).catch((error: unknown) => {
-      ready = undefined
-      throw error
-    })
-    await ready
+    if (!created) {
+      await db.batch(SCHEMA.map((sql) => db.prepare(sql)))
+      created = true
+    }
     return db
   }
 
@@ -63,7 +86,7 @@ export function d1Storage(database: () => D1, companies: Company[]): Storage {
           'INSERT INTO applicants (id, data, updated_at) VALUES (?1, ?2, ?3) ' +
             'ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at',
         )
-        .bind(applicant.id, JSON.stringify(applicant), Date.now())
+        .bind(applicant.id, applicantRow(applicant), Date.now())
         .run()
     },
 
