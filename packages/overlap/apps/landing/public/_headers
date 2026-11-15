@@ -6,9 +6,9 @@
 # CSP notes: Astro emits inline <script>s (island hydration) and inline styles, React islands
 # render style="" attributes, and html-to-image (soap-bubble backdrops) renders data:/blob:
 # images. WebGL needs nothing from CSP. Everything else is same-origin only. When the platform
-# that /get-started opens is on another origin (PUBLIC_PRESELECT_URL, else PUBLIC_APP_URL), the
-# root `build:site` script adds that origin to form-action in dist/_headers: the "Log in" form on
-# /get-started submits a GET form to it ("Get started" itself goes to /get-started, same-origin).
+# that /get-started opens (the app) is on another origin (PUBLIC_APP_URL), the root `build:site`
+# script adds that origin to form-action in dist/_headers: the "Log in" form on /get-started
+# submits a GET form to it ("Get started" itself goes to /get-started, same-origin).
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
@@ -30,7 +30,9 @@
 # Its page gets its own policy in place of the one above (`!` removes a header set by an earlier
 # rule; it must come after that rule). The app loads its fonts from Google Fonts (a CSS @import
 # in apps/app/src/index.css) and has no inline scripts or styles (React sets styles through the
-# CSSOM). Update this policy if .figma/make/site.json adds analytics or custom scripts.
+# CSSOM). Update this policy if .figma/make/site.json adds analytics or custom scripts. Its
+# shortlist reads the pre-selection backend: the bundled one is same-origin (connect-src 'self');
+# for one elsewhere (PUBLIC_PRESELECT_URL) `build:site` adds its origin to connect-src here.
 # CSP only applies to documents and workers, so the other paths under /app/ keep the policy above,
 # including the 404 page served for unknown ones (it needs the inline styles). The service worker
 # only fetches same-origin URLs, which that policy allows.

@@ -9,37 +9,51 @@ import { sitePath } from '@/lib/base'
 export const APP_PATH = '/app/'
 
 /**
- * The Overlap app. By default the app is served by the same Worker at APP_PATH below the site's
- * base (see the root `build:site` script); set PUBLIC_APP_URL at build time to point at another
- * deployment instead.
+ * The app's dev server (apps/app, port 8443), which `vp run dev:landing` starts as well. Its origin
+ * is also among the pre-selection backend's default allowed origins (apps/preselect/src/lib/cors.ts);
+ * config.test.ts fails when they differ.
  */
-export const APP_URL: string = import.meta.env.PUBLIC_APP_URL || sitePath(APP_PATH)
+export const APP_DEV_URL = 'http://localhost:8443/'
+
+/**
+ * The Overlap app. A build serves it from the same Worker at APP_PATH below the site's base (see
+ * the root `build:site` script); in development it is APP_DEV_URL. Set PUBLIC_APP_URL at build
+ * time to point at another deployment instead.
+ */
+export const APP_URL: string =
+  import.meta.env.PUBLIC_APP_URL || (import.meta.env.DEV ? APP_DEV_URL : sitePath(APP_PATH))
+
+/**
+ * The pre-selection backend's dev server (apps/preselect, port 4322). The app's shortlist uses the
+ * same URL in development (apps/app/src/lib/preselect.ts); config.test.ts fails when they differ.
+ */
+export const PRESELECT_DEV_URL = 'http://localhost:4322'
 
 /**
  * The pre-selection backend (apps/preselect), which reads the profiles typed in the ask box. In
- * development it is http://localhost:4322, which `vp run dev:landing` starts as well. A build has
+ * development it is PRESELECT_DEV_URL, which `vp run dev:landing` starts as well. A build has
  * it when PUBLIC_PRESELECT_URL is set: the root `build:site` script sets it to the backend it
  * bundles into the site's Worker, a path on this origin (/submission/preselect). A plain
  * `astro build` has none, and the ask box then works without it.
  */
 export const PRESELECT_URL: string = (
-  import.meta.env.PUBLIC_PRESELECT_URL || (import.meta.env.DEV ? 'http://localhost:4322' : '')
+  import.meta.env.PUBLIC_PRESELECT_URL || (import.meta.env.DEV ? PRESELECT_DEV_URL : '')
 ).replace(/\/+$/, '')
 
 /** Where every "Get started" goes: the login-style page in front of the platform (src/pages/get-started.astro). */
 export const GET_STARTED_URL = sitePath('/get-started')
 
 /**
- * The platform that "Log in" and "Sign up here" on /get-started open: the pre-selection app's
- * organiser view when that app runs, else the Overlap app.
+ * The platform that "Log in" and "Sign up here" on /get-started open: the Overlap app. Its company
+ * side has the event's shortlist, read from the pre-selection app.
  */
-export const PLATFORM_URL: string = PRESELECT_URL ? `${PRESELECT_URL}/` : APP_URL
+export const PLATFORM_URL: string = APP_URL
 
 /**
  * The query /get-started adds when it opens the platform: ?from=get-started. The Overlap app reads
  * it and signs the visitor in to its demo instead of showing its own login
  * (apps/app/src/lib/handoff.ts, which has the same two constants; config.test.ts fails when they
- * differ). Change them together. The organiser view has no login and takes no notice of it.
+ * differ). Change them together.
  */
 export const HANDOFF_PARAM = 'from'
 export const HANDOFF_VALUE = 'get-started'

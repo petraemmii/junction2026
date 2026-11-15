@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vite-plus/test'
 
-import { DEFAULT_SITE_BASE, PRESELECT_PATH, normalizeBase, prefixHeaderRules, preselectTarget } from './site-target.mjs'
+import {
+  DEFAULT_SITE_BASE,
+  PRESELECT_PATH,
+  addConnectSource,
+  normalizeBase,
+  prefixHeaderRules,
+  preselectTarget,
+} from './site-target.mjs'
 
 describe('normalizeBase', () => {
   it('takes the base with or without its slashes', () => {
@@ -100,5 +107,31 @@ describe('preselectTarget', () => {
         path: null,
       })
     }
+  })
+})
+
+describe('addConnectSource', () => {
+  const headers = [
+    '/submission*',
+    "  Content-Security-Policy: default-src 'self'; connect-src 'self' data: blob:; form-action 'self'",
+    '/submission/app/',
+    '  ! Content-Security-Policy',
+    "  Content-Security-Policy: default-src 'self'; connect-src 'self'; worker-src 'self'",
+    '  Cache-Control: no-cache',
+    '/submission/app/sw.js',
+    '  Cache-Control: no-cache',
+    '',
+  ].join('\n')
+
+  it('adds the origin to connect-src of that rule only', () => {
+    const updated = addConnectSource(headers, '/submission/app/', 'https://backend.example.com')
+    expect(updated).toBe(
+      headers.replace("connect-src 'self'; worker-src", "connect-src 'self' https://backend.example.com; worker-src"),
+    )
+  })
+
+  it('is null when the rule has no connect-src to add to', () => {
+    expect(addConnectSource(headers, '/submission/app/sw.js', 'https://backend.example.com')).toBeNull()
+    expect(addConnectSource(headers, '/app/', 'https://backend.example.com')).toBeNull()
   })
 })

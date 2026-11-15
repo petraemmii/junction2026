@@ -62,6 +62,29 @@ export function normalizeBase(value) {
 }
 
 /**
+ * `headers` (a `_headers` file) with `source` added to the `connect-src 'self'` of the rule whose
+ * path is `rule`, and only there; null when that rule has no such directive.
+ *
+ * @param {string} headers
+ * @param {string} rule
+ * @param {string} source
+ * @returns {string | null}
+ */
+export function addConnectSource(headers, rule, source) {
+  let current = null
+  let added = false
+  const lines = headers.split('\n').map((line) => {
+    if (line.startsWith('/')) current = line.trim()
+    if (current !== rule || !/^\s+Content-Security-Policy:/.test(line) || !line.includes("connect-src 'self'")) {
+      return line
+    }
+    added = true
+    return line.replace("connect-src 'self'", `connect-src 'self' ${source}`)
+  })
+  return added ? lines.join('\n') : null
+}
+
+/**
  * A `_headers` file written for a site at the root of its origin (apps/landing/public/_headers), with
  * its rule paths moved below `base` (as normalizeBase returns it). Rule paths are full request paths
  * on Cloudflare, so the site's rules must name the base. "/*" becomes "/submission*", which covers

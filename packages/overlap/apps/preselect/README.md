@@ -24,6 +24,9 @@ development and as part of the composed site's Cloudflare Worker when deployed
 - **Organiser view** (`/`): six broad sliders and the number of applicants to suggest. The
   places are split between the fields by the participating companies' fields. Each suggested
   applicant is a card with the facts behind the score. The tool suggests; the organiser decides.
+- **Organiser data** (`GET /api/organiser`): the same applicants and companies as JSON, for the
+  Overlap app's company side (`apps/app`), which shows the same view in its own design. In the
+  composed site it is `/submission/preselect/api/organiser`, on the app's own origin.
 
 ## Setup
 
@@ -36,7 +39,8 @@ pnpm --filter @overlap/preselect run dev             # http://localhost:4322
 ```
 
 `.env` is never committed. The LinkedIn values in it are only needed for the LinkedIn sign-in.
-The organiser view is empty at first: collect data with the scripts below, or send a profile from
+The organiser view is empty at first: the collected applicant data (`data/applicants.json`) is
+not in this repository, which is public. Collect it with the scripts below, or send a profile from
 the landing page (`pnpm run dev:landing` starts both).
 
 ## Commands
@@ -124,8 +128,8 @@ node scripts/collect.ts
 ```
 
 It reads every address the way an application would be read and saves the result to
-`data/applicants.json`, which stays out of git. Expect a few minutes and roughly 800 to 1,000
-credits. About 34 of the addresses are refused (mostly GitHub organisations, not people), and
+`data/applicants.json`, which stays out of git, adding to what is there. Expect a few minutes and
+roughly 800 to 1,000 credits. About 34 of the addresses are refused (mostly GitHub organisations, not people), and
 the scores will not match another machine's exactly: the pages change, and the model's judgement
 of the fields varies a little between reads. Running `scripts/discover.ts` again replaces the
 list with a new pick; run `vp fmt` on the file before committing it.

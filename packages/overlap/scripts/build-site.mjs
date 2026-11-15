@@ -8,7 +8,8 @@
 // (scripts/site-target.mjs), where the Worker route in wrangler.jsonc serves it. `SITE_BASE=/`
 // builds for the root of an origin: the landing page at /, the app at /app/.
 //
-//   1. apps/app        `build` script with APP_BASE=<base>app/ (skipped when PUBLIC_APP_URL is set)
+//   1. apps/app        `build` script with APP_BASE=<base>app/ and VITE_PRESELECT_URL (the backend
+//                      its shortlist reads; skipped when PUBLIC_APP_URL is set)
 //   2. apps/preselect  `build` script for Cloudflare Workers (PRESELECT_TARGET=workers) with
 //                      PRESELECT_BASE=<base>preselect, into apps/preselect/dist/workers (skipped
 //                      when PUBLIC_PRESELECT_URL is set)
@@ -26,13 +27,14 @@
 // apps/landing/src/config.ts), so the app is neither built nor bundled.
 //
 // PUBLIC_PRESELECT_URL (`preselectTarget` in site-target.mjs): unset, the backend is part of the
-// Worker and the landing page uses it at <base>preselect, on its own origin; a URL is a backend
-// deployed elsewhere; empty is a site without one, whose ask box reads no profiles.
+// Worker and the landing page and the app use it at <base>preselect, on their own origin; a URL is
+// a backend deployed elsewhere (its origin is added to the app page's `connect-src` in
+// dist/_headers); empty is a site without one, whose ask box reads no profiles and whose app has no
+// shortlist. The app gets the same value as VITE_PRESELECT_URL (apps/app/src/lib/preselect.ts).
 //
 // "Get started" goes to <base>get-started, on the landing page's own origin. The "Log in" form there
-// submits a GET form to the platform (PLATFORM_URL in config.ts): the pre-selection backend's
-// organiser view when there is a backend, else the app. When that is on another origin, the origin
-// is added to `form-action` in dist/_headers.
+// submits a GET form to the platform (PLATFORM_URL in config.ts): the app. When that is on another
+// origin (PUBLIC_APP_URL), the origin is added to `form-action` in dist/_headers.
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -43,6 +45,7 @@ import {
   APP_PATH,
   DEFAULT_SITE_BASE,
   DEFAULT_SITE_URL,
+  addConnectSource,
   normalizeBase,
   prefixHeaderRules,
   preselectTarget,
@@ -104,7 +107,9 @@ if (externalApp) {
 } else {
   // FIGMA_PUBLIC_URL takes precedence over APP_BASE in apps/app/vite.config.ts; drop it so a shell
   // that has it set (Figma Make) cannot build the app for the wrong path.
-  const env = { ...process.env, APP_BASE: appBase }
+  // The app's shortlist reads the same backend as the landing page: <base>preselect on this origin
+  // when it is bundled, a URL elsewhere, or none.
+  const env = { ...process.env, APP_BASE: appBase, VITE_PRESELECT_URL: preselect.url }
   delete env.FIGMA_PUBLIC_URL
   runVp(['run', '--filter', '@overlap/app', 'build'], env)
   if (!existsSync(path.join(appDist, 'index.html'))) fail(`${appDist}/index.html is missing after the app build.`)
@@ -176,9 +181,8 @@ if (baseDir) {
 
 // The landing page's CSP has `form-action 'self'`, which blocks the "Log in" form of /get-started
 // when the platform it opens is on another origin. Allow exactly that origin (a relative URL is
-// same-origin already, as the bundled backend is). The platform, as in config.ts: the pre-selection
-// backend, else the app.
-const platform = preselect.url || externalApp
+// same-origin already). The platform, as in config.ts: the app.
+const platform = externalApp
 const origin = platform && URL.canParse(platform) ? new URL(platform).origin : null
 if (origin && origin !== 'null') {
   const file = path.join(landingDist, '_headers')
@@ -187,6 +191,18 @@ if (origin && origin !== 'null') {
   if (updated === headers) fail(`no "form-action 'self'" in ${file} to add ${origin} to.`)
   writeFileSync(file, updated)
   console.log(`\nbuild:site: added ${origin} to form-action in apps/landing/dist/_headers`)
+}
+
+// The app page's CSP has `connect-src 'self'`, which covers a bundled backend (same origin) but
+// blocks the shortlist's request to a backend on another origin. Allow exactly that origin, in the
+// app page's rule only.
+const backendOrigin = !externalApp && URL.canParse(preselect.url) ? new URL(preselect.url).origin : null
+if (backendOrigin && backendOrigin !== 'null') {
+  const file = path.join(landingDist, '_headers')
+  const updated = addConnectSource(readFileSync(file, 'utf8'), appBase, backendOrigin)
+  if (!updated) fail(`no "connect-src 'self'" in the ${appBase} rule of ${file} to add ${backendOrigin} to.`)
+  writeFileSync(file, updated)
+  console.log(`\nbuild:site: added ${backendOrigin} to connect-src of ${appBase} in apps/landing/dist/_headers`)
 }
 
 if (!externalApp) {

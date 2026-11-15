@@ -14,7 +14,8 @@ const vendored = [
   'apps/landing/src/components/islandcn/**',
 ]
 
-// Generated or tool-owned files.
+// Generated or tool-owned files. applicants.json is written by the pre-selection app's collection
+// (and stays out of git).
 const generated = [
   '**/dist/**',
   '**/.astro/**',
@@ -22,6 +23,7 @@ const generated = [
   'apps/landing/worker-configuration.d.ts',
   // Written by `build:site`: which backend the site's Worker bundles.
   'apps/landing/src/worker/backend.mjs',
+  'apps/preselect/data/applicants.json',
 ]
 
 export default defineConfig({

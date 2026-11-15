@@ -6,10 +6,10 @@
 import { storage } from '#runtime'
 import type { APIRoute } from 'astro'
 import { collectApplicant } from '../../lib/collect.ts'
+import { cors } from '../../lib/cors.ts'
 import { prepareCompanies } from '../../lib/companies.ts'
 import { platformOf } from '../../lib/extract.ts'
 import { parseLinks } from '../../lib/links.ts'
-import { setting } from '../../lib/settings.ts'
 import { MAX_READS_PER_HOUR } from '../../lib/storage.ts'
 import { EVENT_NAME } from '../../lib/taxonomy.ts'
 import { FIELD_IDS } from '../../lib/types.ts'
@@ -24,15 +24,6 @@ const SOURCE_MAX_AGE_MS = 24 * 60 * 60 * 1000
 // MAX_READS_PER_HOUR. Counted here for this process and, where several instances serve the
 // requests (Cloudflare Workers), also in the store, across all of them.
 const recent: number[] = []
-
-/** Other origins that may call this endpoint: the landing page in development by default. */
-function cors(request: Request): Record<string, string> {
-  const origin = request.headers.get('origin')
-  const allowed = setting('PRESELECT_ALLOWED_ORIGINS', 'http://localhost:4321,http://127.0.0.1:4321').split(',')
-  return origin && allowed.map((o) => o.trim()).includes(origin)
-    ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
-    : {}
-}
 
 export const OPTIONS: APIRoute = ({ request }) =>
   new Response(null, {

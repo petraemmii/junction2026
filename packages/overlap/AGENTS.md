@@ -18,7 +18,7 @@ pnpm workspace (pnpm 10.34.3, Node 22) on the Vite+ toolchain (`vp`). See README
   `vite.config.ts` holds only the test settings (Astro does not read it). `src/pages/get-started.astro`
   (parts and CSS in `src/components/get-started/`, photo `src/assets/get-started-crowd.webp`): the
   login-style page every "Get started" goes to (`GET_STARTED_URL`); it opens the platform
-  (`PLATFORM_URL`: the pre-selection app's organiser view when it runs, else the app) with the handoff
+  (`PLATFORM_URL`: the app, whose company side has the event's shortlist) with the handoff
   query `?from=get-started`, which the app (`apps/app/src/lib/handoff.ts`) answers by skipping its login.
   `src/worker/` is the Worker's script (`main` in `wrangler.jsonc`): `handler.ts` hands the backend's
   paths to the backend's server and every other path that is not a file back to the static assets
@@ -26,8 +26,10 @@ pnpm workspace (pnpm 10.34.3, Node 22) on the Vite+ toolchain (`vp`). See README
   not committed, typed by `backend.d.mts`) is the backend it bundles, or none.
 - `apps/preselect` (`@overlap/preselect`): the pre-selection backend, Astro 7 server-rendered: the
   organiser view (`src/pages/index.astro`) and the API (`src/pages/api/`, `apply.ts` reads a profile
-  through Context.dev). Two targets (`astro.config.mjs`): a Node server at the root of its origin
-  with JSON files in `data/` (the default: `astro dev`, port 4322, `astro build`), and Cloudflare
+  through Context.dev, `organiser.ts` serves the organiser's data to the app's shortlist,
+  `apps/app/src/screens/Shortlist.tsx`, which finds the backend through `VITE_PRESELECT_URL`).
+  Two targets (`astro.config.mjs`): a Node server at the root of its origin with JSON files in
+  `data/` (the default: `astro dev`, port 4322, `astro build`), and Cloudflare
   Workers below `PRESELECT_BASE` with a D1 database (`PRESELECT_TARGET=workers`, set by `build:site`;
   output in `dist/workers/`). What differs is in `#runtime` (`imports` in its `package.json`):
   `src/lib/runtime.node.ts`, or `runtime.workers.ts` under the `workerd` condition. Storage:
@@ -43,7 +45,8 @@ pnpm workspace (pnpm 10.34.3, Node 22) on the Vite+ toolchain (`vp`). See README
   `dist/submission/preselect/` and writes `apps/landing/src/worker/backend.mjs`; the backend's
   server stays in `apps/preselect/dist/workers/server/`, outside `dist/`. `PUBLIC_PRESELECT_URL`
   (`preselectTarget` in `site-target.mjs`): unset bundles the backend at `<base>preselect`, a URL is
-  a backend elsewhere, empty is no backend. The landing `preview` and `deploy` scripts run it first.
+  a backend elsewhere, empty is no backend; the app is built with the same value as
+  `VITE_PRESELECT_URL`. The landing `preview` and `deploy` scripts run it first.
 - `.figma/make/`: Figma Make scripts (install, dev, deploy, format). They run from the repo root
   with plain `pnpm` and target `apps/app`.
 - Root `vite.config.ts`: workspace-wide `fmt` and `lint` settings (with per-app `overrides`) and

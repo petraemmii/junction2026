@@ -6,7 +6,9 @@
 .wrangler/
 .dev.vars*
 
-# Collected applicant data: read from real people's public profiles, never committed.
+# Collected applicant data: read from real people's public profiles, never committed here (the
+# repository is public). On Node the organiser view reads data/applicants.json when it exists; the
+# deployed backend keeps its applicants in D1.
 data/*
 # The event's companies are public information and the same for everyone, so they are shared.
 !data/companies.json

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { COMPANIES, EVENTS, TALENTS, questionnaire } from '../lib/data'
 import { eventFit, eventVisible, fitLabel, passCompany, passTalent, rankCompanies, rankTalents } from '../lib/fit'
+import { EVENT_NAME } from '../../../preselect/src/lib/taxonomy.ts'
 import { useStore } from '../lib/store'
 import { Avatar, Btn, Card, Chip, DimBars, Page, Ring, Tag, TopBar, cx, hueOf } from '../ui'
 
@@ -63,6 +64,31 @@ export function QuizCta() {
   )
 }
 
+/** The company side's way into the shortlist of the real event (Shortlist.tsx). */
+export function ShortlistCta() {
+  const s = useStore()
+  return (
+    <button
+      type="button"
+      onClick={() => s.go({ name: 'shortlist' })}
+      className="rise relative block w-full overflow-hidden rounded-[28px] bg-lime p-5 text-left text-forest transition active:scale-[.985]"
+    >
+      <div className="absolute -right-6 -top-6 size-28 rounded-full bg-coral" />
+      <span className="relative inline-flex rounded-full bg-forest px-2.5 py-1 text-xs font-medium text-lime">
+        {EVENT_NAME}
+      </span>
+      <h2 className="mt-3 font-display text-2xl font-extrabold leading-tight">Pick who gets a place</h2>
+      <p className="mt-1 max-w-[16rem] text-sm text-forest/80">
+        The event's real applicants, ranked as you move the sliders.
+      </p>
+      <span className="mt-3 flex items-center gap-1 font-display font-bold">
+        Open the shortlist
+        <ChevronRight size={18} />
+      </span>
+    </button>
+  )
+}
+
 export function Home() {
   const s = useStore()
   const [cat, setCat] = useState('All')
@@ -87,6 +113,11 @@ export function Home() {
       <h1 className="mb-4 mt-1 font-display text-3xl font-extrabold leading-tight">
         {s.r === 'talent' ? 'Events where you’ll fit in' : 'Events with your people'}
       </h1>
+      {s.r === 'company' && (
+        <div className="mb-4">
+          <ShortlistCta />
+        </div>
+      )}
       {!s.completed && (
         <div className="mb-5">
           <QuizCta />

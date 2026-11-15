@@ -10,9 +10,11 @@ import {
   normalizeBase,
 } from '../../../scripts/site-target.mjs'
 import {
+  APP_DEV_URL,
   APP_PATH as LANDING_APP_PATH,
   HANDOFF_PARAM,
   HANDOFF_VALUE,
+  PRESELECT_DEV_URL,
   platformEntryFields,
   platformEntryUrl,
 } from './config'
@@ -72,6 +74,29 @@ describe('the handoff', () => {
   it('has the same query name and value in the app (apps/app/src/lib/handoff.ts)', () => {
     expect(constant('HANDOFF_PARAM')).toBe(HANDOFF_PARAM)
     expect(constant('HANDOFF_VALUE')).toBe(HANDOFF_VALUE)
+  })
+})
+
+describe('the dev servers', () => {
+  // The landing page, the app and the backend name each other's dev URLs in their own sources.
+  const read = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf8')
+  const appClient = read('../../app/src/lib/preselect.ts')
+  const appConfig = read('../../app/vite.config.ts')
+  const preselectConfig = read('../../preselect/astro.config.mjs')
+  const cors = read('../../preselect/src/lib/cors.ts')
+  const allowed = /const DEFAULT_ORIGINS = '([^']*)'/.exec(cors)?.[1]?.split(',') ?? []
+
+  it('has the backend at the same dev URL for the app’s shortlist (apps/app/src/lib/preselect.ts)', () => {
+    expect(appClient).toContain(`import.meta.env.DEV ? '${PRESELECT_DEV_URL}' : ''`)
+    expect(preselectConfig).toContain(`port: ${new URL(PRESELECT_DEV_URL).port}`)
+  })
+
+  it('has the app at its dev server’s port (apps/app/vite.config.ts)', () => {
+    expect(appConfig).toContain(`process.env.PORT || '${new URL(APP_DEV_URL).port}'`)
+  })
+
+  it('lets the landing page and the app call the backend in development (apps/preselect/src/lib/cors.ts)', () => {
+    expect(allowed).toEqual(expect.arrayContaining([new URL(APP_DEV_URL).origin, 'http://localhost:4321']))
   })
 })
 
