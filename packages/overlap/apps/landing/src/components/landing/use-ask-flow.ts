@@ -35,6 +35,15 @@ const plural = (count: number) => `${count} ${count === 1 ? 'event' : 'events'}`
 /** What the ask box says while nothing is asked: how many events are in the field. */
 export const idleLine = (events: number) => `${plural(events)} this season. Ask for what you want.`
 
+/** The beats of an ask in milliseconds: how long it is read, and the least it is checked for. */
+export const BEATS = { read: 900, check: 1500 } as const
+
+/**
+ * How much longer an ask that has run for `elapsed` ms holds its answer back: until its beats
+ * have ended, and not at all once they have.
+ */
+export const untilAnswer = (elapsed: number, beats: number) => Math.max(0, beats - elapsed)
+
 /** What the ask box says about the event while a profile is read and after. */
 export function eventLines(event: EventInfo) {
   const companies = `${event.companies} ${event.companies === 1 ? 'company' : 'companies'}`
@@ -58,7 +67,9 @@ function summary(shown: readonly LandingEvent[], filters: AskFilters): string {
 /**
  * The demo's small state machine. A profile runs think -> search -> speak (or error) and is
  * answered with the companies at the event it matches; any other ask is answered with a request
- * for a profile. The cards in the field stay as they are; only filter changes re-form them.
+ * for a profile. Every profile is read and checked for its full beats (BEATS), so one the backend
+ * already knows is checked for as long as the next. The cards in the field stay as they are; only
+ * filter changes re-form them.
  */
 export function useAskFlow(event: EventInfo): AskFlow {
   const lines = useMemo(() => eventLines(event), [event])
@@ -144,32 +155,38 @@ export function useAskFlow(event: EventInfo): AskFlow {
         // is in the console.
         if (!profilesEnabled) {
           console.error('[preselect] no backend: this build has no PUBLIC_PRESELECT_URL, so the profile is not read.')
-          later(pace(900), () => {
+          later(pace(BEATS.read), () => {
             searching()
-            later(pace(1500), () => answer(lines.noMatch, 'error'))
+            later(pace(BEATS.check), () => answer(lines.noMatch, 'error'))
           })
           return
         }
-        // Reading a public profile takes real time, so the answer waits for the backend.
+        // Reading a public profile takes real time, so the answer waits for the backend. A profile
+        // it has read before comes back at once, sooner or later with the connection: that answer
+        // waits for the beats to end, so the check never looks skipped or cut short.
         const request = new AbortController()
         reading.current = request
-        later(pace(900), searching)
+        const started = performance.now()
+        const beats = pace(BEATS.read) + pace(BEATS.check)
+        later(pace(BEATS.read), searching)
         void readProfile(next, request.signal).then((companies) => {
           if (request.signal.aborted) return
-          if (companies === null) answer(lines.noMatch, 'error')
-          else answer(overlapLine(event.name, companies) ?? lines.noMatch, companies.length ? 'speaking' : 'error')
+          later(untilAnswer(performance.now() - started, beats), () => {
+            if (companies === null) answer(lines.noMatch, 'error')
+            else answer(overlapLine(event.name, companies) ?? lines.noMatch, companies.length ? 'speaking' : 'error')
+          })
         })
         return
       }
       // The Steve Jobs pill: searched, and matches nothing, so the red is full of skulls.
       if (next === SKULL_ASK) {
-        later(pace(900), () => {
+        later(pace(BEATS.read), () => {
           searching()
-          later(pace(1500), () => answer(lines.noMatch, 'error'))
+          later(pace(BEATS.check), () => answer(lines.noMatch, 'error'))
         })
         return
       }
-      later(pace(900), () => answer(lines.notProfile, 'speaking'))
+      later(pace(BEATS.read), () => answer(lines.notProfile, 'speaking'))
     },
     [answer, clear, later, pace, settle, lines, event.name],
   )

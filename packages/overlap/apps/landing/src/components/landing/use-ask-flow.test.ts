@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test'
 
 import { SKULL_ASK } from '@/data/events'
-import { cleanAsk, eventLines, idleLine } from './use-ask-flow'
+import { BEATS, cleanAsk, eventLines, idleLine, untilAnswer } from './use-ask-flow'
 
 describe('idleLine', () => {
   it('counts the events in the field', () => {
@@ -36,5 +36,20 @@ describe('cleanAsk', () => {
   it('leaves the skull ask as it is', () => {
     expect(cleanAsk(SKULL_ASK)).toBe(SKULL_ASK)
     expect(cleanAsk('  He   is\n dead.  ')).toBe(SKULL_ASK)
+  })
+})
+
+describe('untilAnswer', () => {
+  const beats = BEATS.read + BEATS.check
+
+  // A profile the backend has read before answers in a fraction of a second.
+  it('holds an early answer back until the beats have ended', () => {
+    expect(untilAnswer(250, beats)).toBe(2150)
+    expect(untilAnswer(1300, beats)).toBe(1100)
+  })
+
+  it('does not hold back an answer that took longer than the beats', () => {
+    expect(untilAnswer(beats, beats)).toBe(0)
+    expect(untilAnswer(14_000, beats)).toBe(0)
   })
 })
