@@ -3,13 +3,14 @@
 // and stores the applicant for the organiser. The answer says which links were read and which
 // were refused, not how the applicant scored: that is for the organiser. Takes JSON, also from
 // the other origins in PRESELECT_ALLOWED_ORIGINS (the landing page), or form data with a CV file.
+import { storage } from '#runtime'
 import type { APIRoute } from 'astro'
 import { collectApplicant } from '../../lib/collect.ts'
 import { prepareCompanies } from '../../lib/companies.ts'
 import { platformOf } from '../../lib/extract.ts'
 import { parseLinks } from '../../lib/links.ts'
 import { setting } from '../../lib/settings.ts'
-import { readApplicants, readCompanies, saveApplicant } from '../../lib/store.ts'
+import { MAX_READS_PER_HOUR } from '../../lib/storage.ts'
 import { EVENT_NAME } from '../../lib/taxonomy.ts'
 import { FIELD_IDS } from '../../lib/types.ts'
 import type { Applicant, FieldId } from '../../lib/types.ts'
@@ -19,8 +20,9 @@ const CV_TYPES = ['pdf', 'docx', 'doc', 'txt', 'md', 'rtf']
 const MAX_CV_BYTES = 10 * 1024 * 1024
 const SOURCE_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
-// Every application spends Context.dev credits, so a runaway script cannot send more than this.
-const MAX_PER_HOUR = 120
+// Every application spends Context.dev credits, so a runaway script cannot send more than
+// MAX_READS_PER_HOUR. Counted here for this process and, where several instances serve the
+// requests (Cloudflare Workers), also in the store, across all of them.
 const recent: number[] = []
 
 /** Other origins that may call this endpoint: the landing page in development by default. */
@@ -79,10 +81,12 @@ async function read(request: Request): Promise<Input | null> {
  * What the sender is told: which sources were read and which of the event's companies the
  * applicant overlaps with, best match first. Nothing about the score.
  */
-const answer = (applicant: Applicant) => ({
+const answer = async (applicant: Applicant) => ({
   id: applicant.id,
   event: EVENT_NAME,
-  companies: toView(applicant, prepareCompanies(readCompanies())).companies.matches.map((match) => match.name),
+  companies: toView(applicant, prepareCompanies(await storage.companies())).companies.matches.map(
+    (match) => match.name,
+  ),
   sources: applicant.sources.map((source) => ({
     label: source.platform === 'cv' ? 'CV' : platformOf(source.url).label,
     url: source.platform === 'cv' ? null : source.url,
@@ -117,7 +121,8 @@ export const POST: APIRoute = async ({ request }) => {
   const urls = links.map((link) => link.url)
   const same = (a: Applicant) =>
     !a.hasCv && a.links.length === urls.length && a.links.every((url) => urls.includes(url))
-  const known = cv ? undefined : readApplicants().find(same)
+  const applicants = await storage.applicants()
+  const known = cv ? undefined : applicants.find(same)
   const fresh =
     known?.sources.length &&
     known.sources.every((source) => {
@@ -126,26 +131,27 @@ export const POST: APIRoute = async ({ request }) => {
     })
   if (known && fresh && !input.refresh) {
     const updated = { ...known, declaredFields }
-    saveApplicant(updated)
-    return json({ ...answer(updated), links, rejected, repeated: true })
+    await storage.saveApplicant(updated)
+    return json({ ...(await answer(updated)), links, rejected, repeated: true })
   }
 
   const hourAgo = Date.now() - 3_600_000
   while (recent.length && recent[0]! < hourAgo) recent.shift()
-  if (recent.length >= MAX_PER_HOUR)
-    return json({ error: 'Too many applications right now. Try again in a while.' }, 429)
+  const tooMany = () => json({ error: 'Too many applications right now. Try again in a while.' }, 429)
+  if (recent.length >= MAX_READS_PER_HOUR) return tooMany()
   recent.push(Date.now())
+  if (!(await storage.reserveRead(MAX_READS_PER_HOUR))) return tooMany()
 
   const applicant = await collectApplicant({
     links: urls,
     declaredFields,
     cv: cv ? { bytes: new Uint8Array(await cv.arrayBuffer()), extension } : undefined,
-    alias: known?.alias ?? `Applicant ${String(readApplicants().length + 1).padStart(3, '0')}`,
+    alias: known?.alias ?? `Applicant ${String(applicants.length + 1).padStart(3, '0')}`,
   })
   for (const source of applicant.sources) {
     if (source.status !== 'ok') console.warn(`[apply] could not read ${source.url}:`, source.error)
   }
   const updated = known ? { ...applicant, id: known.id, alias: known.alias, createdAt: known.createdAt } : applicant
-  saveApplicant(updated)
-  return json({ ...answer(updated), links, rejected, repeated: !!known })
+  await storage.saveApplicant(updated)
+  return json({ ...(await answer(updated)), links, rejected, repeated: !!known })
 }

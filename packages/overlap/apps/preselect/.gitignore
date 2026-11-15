@@ -1,6 +1,11 @@
 # Astro generated types and caches
 .astro/
 
+# Left by the Workers build (a deploy redirect of @cloudflare/vite-plugin) and by local Wrangler
+# runs. Secrets for `wrangler dev` never belong in git.
+.wrangler/
+.dev.vars*
+
 # Collected applicant data: read from real people's public profiles, never committed.
 data/*
 # The event's companies are public information and the same for everyone, so they are shared.

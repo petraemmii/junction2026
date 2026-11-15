@@ -1,16 +1,10 @@
-// Settings from the environment, or from a .env file in this app or the repo root. Server-side only.
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+// Settings from where the server keeps them (`#runtime`): on Node the environment or a .env file
+// in this app or the repo root, on Cloudflare Workers the Worker's secrets and variables. Read
+// when asked for, never at build time. Server-side only.
+import { ENV_SOURCES, envValue } from '#runtime'
 
 export function setting(name: string, fallback?: string): string {
-  let value = process.env[name]
-  for (const file of ['.env', '../../.env']) {
-    if (value) break
-    const path = resolve(process.cwd(), file)
-    if (!existsSync(path)) continue
-    value = readFileSync(path, 'utf8').match(new RegExp(`^\\s*${name}\\s*=\\s*["']?([^"'\\s#]+)`, 'm'))?.[1]
-  }
-  value ??= fallback
-  if (!value) throw new Error(`${name} is not set (environment, .env here or in the repo root)`)
+  const value = envValue(name) ?? fallback
+  if (!value) throw new Error(`${name} is not set (${ENV_SOURCES})`)
   return value
 }

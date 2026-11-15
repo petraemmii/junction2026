@@ -1,12 +1,26 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // Assets-only Worker: no `main` script, no adapter and no bindings. Every request is served
-  // straight from the static files in dist/, so no Worker code ever runs. dist/ is the composed
-  // site from the root `build:site` script, built by default for https://junction2026.com/submission:
-  // the landing page in dist/submission/ (its home page is dist/submission.html) and the app in
-  // dist/submission/app/.
+  // One Worker for the whole site. dist/ is the composed site from the root `build:site` script,
+  // built by default for https://junction2026.com/submission: the landing page in dist/submission/
+  // (its home page is dist/submission.html), the app in dist/submission/app/ and the client files
+  // of the pre-selection backend (apps/preselect) in dist/submission/preselect/.
   "name": "overlap-landing",
+  // The Worker's code (src/worker/handler.ts) runs only for paths that are not a file in dist/
+  // (static files are served first, without it). It hands /submission/preselect and everything
+  // below it to the backend's server, which `build:site` builds for Workers and points
+  // src/worker/backend.mjs at; Wrangler bundles the two. Every other path goes back to the static
+  // assets for the 404 page.
+  "main": "./src/worker/index.ts",
+  // The date and flags the backend is built for: keep them the same in
+  // apps/preselect/workers/wrangler.jsonc (src/config.test.ts checks).
+  // - nodejs_compat: Astro's server uses Node's AsyncLocalStorage.
+  // - assets_navigation_has_no_effect: since 2025-04-01, a page load (`Sec-Fetch-Mode: navigate`)
+  //   of a path that is not a file is answered with the 404 page without running the Worker when
+  //   `not_found_handling` is set, so the organiser view, which is not a file, would be a 404 in a
+  //   browser (and only there: curl sends no such header). This flag turns that off: every path
+  //   that is not a file reaches the Worker, which asks the static assets for the 404 page itself.
   "compatibility_date": "2026-11-13",
+  "compatibility_flags": ["nodejs_compat", "assets_navigation_has_no_effect"],
   // junction2026.com itself is another Worker (a custom domain, from another repository). This route
   // runs in front of it for /submission and everything below it, and only there. The pattern also
   // matches /submissions and the like, which get dist/404.html. Keep the host and path in step with
@@ -17,6 +31,8 @@
   "preview_urls": false,
   "assets": {
     "directory": "./dist",
+    // How the Worker's code reaches the static files (the 404 page for unknown paths).
+    "binding": "ASSETS",
     // Unknown paths get the nearest 404.html with a 404 status: dist/submission/404.html below the
     // base, dist/404.html (the same page) elsewhere.
     "not_found_handling": "404-page",
@@ -32,6 +48,18 @@
     // A root build (`SITE_BASE=/ vp run build:site`) has the same shape without /submission.
     "html_handling": "auto-trailing-slash",
   },
+  // The backend's applicants (apps/preselect/src/lib/storage-d1.ts creates its tables on the first
+  // request). `wrangler dev` uses a local database in .wrangler/ instead.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "overlap-preselect",
+      "database_id": "57e873f0-77c4-44b3-bbbc-f780c95055f5",
+    },
+  ],
+  // Secrets are not in this file. The backend needs CONTEXT_DEV_API_KEY:
+  // `wrangler secret put CONTEXT_DEV_API_KEY` for the deployed Worker, a .dev.vars file beside this
+  // one (git ignores it) for `wrangler dev`.
   // Don't send Wrangler usage metrics for this project.
   "send_metrics": false,
 }

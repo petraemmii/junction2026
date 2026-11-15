@@ -46,3 +46,9 @@
 # The app's fingerprinted build output (Vite's assets/ folder).
 /app/assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The pre-selection backend (apps/preselect), which the root `build:site` script bundles into the
+# Worker. Its pages and API routes are not files, so no rule here reaches them: the Worker sets
+# their headers itself (src/worker/handler.ts). These are its fingerprinted client files.
+/preselect/_astro/*
+  Cache-Control: public, max-age=31536000, immutable

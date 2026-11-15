@@ -1,16 +1,17 @@
 # Overlap
 
 Overlap matches talent and companies to events by a fit rating. This repository is a pnpm
-workspace on the [Vite+](https://viteplus.dev) toolchain (`vp`) with two apps:
+workspace on the [Vite+](https://viteplus.dev) toolchain (`vp`) with three apps:
 
-| Path           | Package            | What                                                                                                            |
-| -------------- | ------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `apps/app`     | `@overlap/app`     | The web app: React 19, Vite, Tailwind CSS v4. Built and hosted by Figma Make (`.figma/`).                       |
-| `apps/landing` | `@overlap/landing` | The landing page: Astro 7 (static), React islands, Tailwind CSS v4. Served by an assets-only Cloudflare Worker. |
+| Path             | Package              | What                                                                                                                         |
+| ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `apps/app`       | `@overlap/app`       | The web app: React 19, Vite, Tailwind CSS v4. Built and hosted by Figma Make (`.figma/`).                                    |
+| `apps/landing`   | `@overlap/landing`   | The landing page: Astro 7 (static), React islands, Tailwind CSS v4. Static files of the site's Cloudflare Worker.            |
+| `apps/preselect` | `@overlap/preselect` | The pre-selection backend: Astro 7 (server-rendered). A Node server in development, part of the site's Worker when deployed. |
 
-`scripts/build-site.mjs` combines the two into one deployable site, served at
-https://junction2026.com/submission: the landing page at `/submission` and the app at
-`/submission/app/`.
+`scripts/build-site.mjs` combines the three into one deployable site, served by one Cloudflare
+Worker at https://junction2026.com/submission: the landing page at `/submission`, the app at
+`/submission/app/` and the pre-selection backend at `/submission/preselect/`.
 
 ## Commands
 
@@ -41,8 +42,9 @@ runs `astro check` first for that reason.
 
 ## The pre-selection app
 
-`apps/preselect` (`@overlap/preselect`) is a third app that runs on its own: applicant
-pre-selection for an event, on Astro 7 with a Node server. It is not part of the composed site.
+`apps/preselect` (`@overlap/preselect`) is applicant pre-selection for an event, on Astro 7: an
+organiser view and the API that the landing page's ask box sends public profiles to. In
+development it is a Node server of its own, with its data in JSON files:
 
 ```sh
 pnpm install
@@ -56,10 +58,20 @@ See [apps/preselect/README.md](apps/preselect/README.md) for the scripts that co
 `pnpm run dev:landing` starts this app next to the landing page, and the landing page's ask box
 passes a public profile on to it (`PRESELECT_URL` in `apps/landing/src/config.ts`,
 http://localhost:4322 in development). The profile is read and scored for the organiser; the
-visitor is told which companies at the event it matches. A build sends profiles only when
-`PUBLIC_PRESELECT_URL` is set. A deployed site would also need the backend's origin in
-the landing page's `connect-src` (`apps/landing/public/_headers`) and its own origin in the
-backend's `PRESELECT_ALLOWED_ORIGINS`; neither is set up.
+visitor is told which companies at the event it matches.
+
+In the composed site the same app runs in the site's Worker, below `/submission/preselect` on the
+landing page's own origin, with its applicants in a D1 database and the Context.dev key as a
+secret of the Worker (see [Deploying](#deploying)). `PUBLIC_PRESELECT_URL` decides, when
+`build:site` runs:
+
+- unset: the backend is built into the Worker, and the landing page uses it at
+  `/submission/preselect` (a relative URL on its own origin, so no CORS and no CSP change);
+- a URL: a backend deployed elsewhere, which is then not bundled. `build:site` adds its origin to
+  `form-action`; the landing page's `connect-src` (`apps/landing/public/_headers`) and the
+  backend's `PRESELECT_ALLOWED_ORIGINS` are not set up for it;
+- empty (`PUBLIC_PRESELECT_URL=`): no backend. The ask box reads no profiles and "Log in" on
+  `/get-started` opens the app.
 
 ## The composed site
 
@@ -70,10 +82,15 @@ served below). Unset, they are `https://junction2026.com` and `/submission/`
 empty value) builds for the root of an origin. The script:
 
 1. builds `apps/app` with `APP_BASE=/submission/app/`, so its URLs start with that;
-2. builds `apps/landing` with `SITE_URL` and `SITE_BASE` (`astro build` empties
-   `apps/landing/dist` first). Astro's `base` prefixes its own output; every other root-relative
-   URL of the landing page goes through `sitePath` (`src/lib/base.ts`);
-3. moves the landing build below the base, because the Worker looks up a request's full path in
+2. builds `apps/preselect` for Cloudflare Workers (`PRESELECT_TARGET=workers`: the
+   `@astrojs/cloudflare` adapter in place of the Node one) with
+   `PRESELECT_BASE=/submission/preselect`, into `apps/preselect/dist/workers/`: `server/` (its
+   code) and `client/` (its `_astro/` files);
+3. builds `apps/landing` with `SITE_URL`, `SITE_BASE` and
+   `PUBLIC_PRESELECT_URL=/submission/preselect` (`astro build` empties `apps/landing/dist` first).
+   Astro's `base` prefixes its own output; every other root-relative URL of the landing page goes
+   through `sitePath` (`src/lib/base.ts`);
+4. moves the landing build below the base, because the Worker looks up a request's full path in
    `dist/`, and reads `_headers` and `.assetsignore` only at its root:
 
    ```text
@@ -83,16 +100,22 @@ empty value) builds for the root of an origin. The script:
      404.html           for paths the route matches outside the base (/submissions)
      submission.html    the home page, /submission (no trailing slash)
      submission/        get-started.html, 404.html, _astro/, events/, og.png, icons
-       app/             the app (step 4), /submission/app/
+       app/             the app (step 5), /submission/app/
+       preselect/       the backend's client files (step 6), /submission/preselect/_astro/
    ```
 
    No `robots.txt`: it only counts at the root of an origin;
 
-4. copies `apps/app/dist` to `apps/landing/dist/submission/app`.
+5. copies `apps/app/dist` to `apps/landing/dist/submission/app`;
+6. copies the backend's client files to `apps/landing/dist/submission/preselect` and writes
+   `apps/landing/src/worker/backend.mjs` (not committed), which points the Worker's entry at the
+   backend's server build. The server stays outside `dist/`, so none of its code is ever served
+   as a file; Wrangler bundles it into the Worker when it deploys or runs `wrangler dev`.
 
-A root build (`SITE_BASE=/`) skips step 3: the landing page at `/` (`dist/index.html`), the app at
-`/app/`, `_headers` and `robots.txt` as in `public/`. `astro dev` and a plain `astro build` are at
-`/`. Paths of the landing page in the rest of this README are written for a root build.
+A root build (`SITE_BASE=/`) skips step 4: the landing page at `/` (`dist/index.html`), the app at
+`/app/`, the backend at `/preselect/`, `_headers` and `robots.txt` as in `public/`. `astro dev`
+and a plain `astro build` are at `/`. Paths of the landing page in the rest of this README are
+written for a root build.
 
 `APP_BASE` (default `/`) only applies when `FIGMA_PUBLIC_URL` is unset, so Figma Make builds of
 the app are unchanged. The landing page's "Get started" buttons go to `/get-started`
@@ -105,8 +128,11 @@ When the platform is on another origin (`PUBLIC_PRESELECT_URL`, else `PUBLIC_APP
 `build:site` adds that origin to the landing page's `form-action` CSP directive in `dist/_headers`
 (the "Log in" form on `/get-started` submits a GET form to it).
 
-`apps/landing/wrangler.jsonc` defines an assets-only Worker (`overlap-landing`: no Worker code, no
-bindings) that serves `apps/landing/dist`:
+`apps/landing/wrangler.jsonc` defines the one Worker (`overlap-landing`) that serves the site. The
+static files in `apps/landing/dist` are served first, without running any code. Every path that
+is not a file reaches the Worker's script (`src/worker/index.ts`, its logic in
+`src/worker/handler.ts`): `/submission/preselect` and everything below it goes to the backend's
+server, any other path back to the static assets (the `ASSETS` binding) for the 404 page.
 
 - `routes`: `junction2026.com/submission*` only. junction2026.com itself is another Worker (a
   custom domain, from another repository); a route runs in front of it, so this Worker gets
@@ -117,19 +143,29 @@ bindings) that serves `apps/landing/dist`:
   `submission.html`; `/submission/` redirects to `/submission`), folders with one.
   `/submission/app` redirects to `/submission/app/`, where the app's relative URLs
   (`manifest.webmanifest`, `icon.svg`) and its service worker scope resolve.
-- `not_found_handling: "404-page"`: unknown paths, also under the app, get the nearest `404.html`
-  (the landing page's) with a 404 status.
+- `not_found_handling: "404-page"`: unknown paths, also under the app and the backend, get the
+  nearest `404.html` (the landing page's) with a 404 status.
+- `compatibility_flags`: `nodejs_compat` for Astro's server, and
+  `assets_navigation_has_no_effect`. Without the second, a page load in a browser
+  (`Sec-Fetch-Mode: navigate`) of a path that is not a file gets the 404 page without the Worker
+  ever running, so the organiser view would be a 404 in a browser while `curl` gets it.
+- `d1_databases`: the backend's applicants, in the D1 database `overlap-preselect`, bound as `DB`.
 - `apps/landing/public/_headers`: security headers and caching, written for a root build. The
   landing page's Content-Security-Policy covers every path; `/app/` (the app's page) replaces it
   with the app's own policy, which allows Google Fonts (`fonts.googleapis.com`,
   `fonts.gstatic.com`). `/app/assets/*` is cached as immutable; `/app/` and `/app/sw.js` revalidate
   on every load. `build:site` prefixes the rule paths with the base in `dist/_headers`.
+  `_headers` applies to files only. The backend's pages and API answers get their headers in
+  `src/worker/handler.ts`: the same security headers, a policy like the landing page's for the
+  organiser view, `default-src 'none'` for the API, and `Cache-Control: no-store`. Its
+  fingerprinted files (`/preselect/_astro/*`) are files, cached as immutable.
 
 ## Deploying
 
 ```sh
 pnpm --filter @overlap/landing exec wrangler login   # once; or set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
 vp run deploy:landing                                # build:site && wrangler deploy
+pnpm --filter @overlap/landing exec wrangler secret put CONTEXT_DEV_API_KEY   # once, after the first deploy
 vp run --filter @overlap/landing preview             # local: build:site && wrangler dev
 ```
 
@@ -141,6 +177,27 @@ must be on the same Cloudflare account). The home page is https://junction2026.c
 tags. Add `PUBLIC_APP_URL=https://app.example.com/` to deploy the landing page alone. To deploy
 somewhere else, change the route in `wrangler.jsonc` and the defaults in `scripts/site-target.mjs`
 together.
+
+The backend's settings are secrets of the Worker, never part of a build: they are read when a
+request needs them. `CONTEXT_DEV_API_KEY` is required; set it once with `wrangler secret put`
+(it asks for the value and survives later deploys). Until it is set, an application is answered
+as one whose links could not be read. Optional, set the same way: `LINKEDIN_CLIENT_ID` and
+`LINKEDIN_CLIENT_SECRET` (the LinkedIn sign-in, whose redirect URL is then
+`https://junction2026.com/submission/preselect/api/linkedin/callback`) and
+`PRESELECT_ALLOWED_ORIGINS`. Locally, `preview` reads them from `apps/landing/.dev.vars`
+(`CONTEXT_DEV_API_KEY=...`; git ignores the file) and keeps its database under
+`apps/landing/.wrangler/`.
+
+The applicants are rows of the D1 database `overlap-preselect` (`d1_databases` in
+`wrangler.jsonc`). Its tables are created on the first request; there is no migration step.
+`wrangler d1 execute overlap-preselect --remote --command "SELECT id, updated_at FROM applicants"`
+shows them, with `--local` the ones of `preview`.
+
+Once deployed, the organiser view (`/submission/preselect/`) and the apply endpoint
+(`/submission/preselect/api/apply`) are public: there is no login. Anyone with the address sees
+the applicants (an alias, the links they gave and what was read from them) and can send
+applications, each of which spends Context.dev credits. At most 120 reads start per hour
+(`MAX_READS_PER_HOUR`), counted in D1 across the Worker's instances.
 
 ## Tests
 
@@ -154,7 +211,10 @@ imported by any page, so they are not part of the build.
 `apps/landing/src/data/events.test.ts` covers the search and the demo data of
 `apps/landing/src/data/events.ts`. `scripts/` is a test project too: `scripts/site-target.test.ts`
 covers the base and `_headers` helpers of the build script. `apps/landing/src/config.test.ts` also
-checks that the Worker route, the default base and the app's path agree across files.
+checks that the Worker route, the default base, the app's and the backend's paths and the two
+Wrangler configs agree across files; `apps/landing/src/worker/handler.test.ts` covers the Worker's
+routing and headers. The tests of `apps/preselect` run with the rest; its storage is tested on
+files and on D1 (`src/lib/storage.test.ts`, with SQLite standing in for D1).
 
 ## The landing page
 

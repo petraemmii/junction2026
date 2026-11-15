@@ -4,12 +4,12 @@
 import Organizer from "../components/Organizer.tsx";
 import Layout from "../layouts/Layout.astro";
 import { prepareCompanies } from "../lib/companies.ts";
-import { readApplicants, readCompanies } from "../lib/store.ts";
+import { storage } from "#runtime";
 import { toView } from "../lib/view.ts";
 
-const companies = readCompanies();
+const companies = await storage.companies();
 const prepared = prepareCompanies(companies);
-const applicants = readApplicants().map((applicant) => toView(applicant, prepared));
+const applicants = (await storage.applicants()).map((applicant) => toView(applicant, prepared));
 ---
 
 <Layout title="Suggested applicants · Preselect">

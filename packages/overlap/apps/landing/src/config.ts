@@ -16,9 +16,11 @@ export const APP_PATH = '/app/'
 export const APP_URL: string = import.meta.env.PUBLIC_APP_URL || sitePath(APP_PATH)
 
 /**
- * The pre-selection app (apps/preselect), which reads the profiles typed in the ask box. In
- * development it is http://localhost:4322, which `vp run dev:landing` starts as well; a build has
- * it only when PUBLIC_PRESELECT_URL is set, and the ask box then works without it.
+ * The pre-selection backend (apps/preselect), which reads the profiles typed in the ask box. In
+ * development it is http://localhost:4322, which `vp run dev:landing` starts as well. A build has
+ * it when PUBLIC_PRESELECT_URL is set: the root `build:site` script sets it to the backend it
+ * bundles into the site's Worker, a path on this origin (/submission/preselect). A plain
+ * `astro build` has none, and the ask box then works without it.
  */
 export const PRESELECT_URL: string = (
   import.meta.env.PUBLIC_PRESELECT_URL || (import.meta.env.DEV ? 'http://localhost:4322' : '')

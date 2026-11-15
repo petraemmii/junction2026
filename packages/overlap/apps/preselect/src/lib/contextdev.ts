@@ -1,27 +1,18 @@
 // Thin client for the Context.dev API (https://docs.context.dev). Server-side only: the key
 // must never reach the browser.
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { setting } from './settings.ts'
 
 const BASE_URL = 'https://api.context.dev/v1'
 
 let cachedKey: string | undefined
 
 /**
- * The API key from the environment, or from a .env file in this app or the repo root.
+ * The API key, from where the server keeps its settings: the environment or a .env file on Node,
+ * a secret of the Worker on Cloudflare (settings.ts).
  */
 export function apiKey(): string {
-  if (cachedKey) return cachedKey
-  let key = process.env.CONTEXT_DEV_API_KEY
-  for (const file of ['.env', '../../.env']) {
-    if (key) break
-    const path = resolve(process.cwd(), file)
-    if (!existsSync(path)) continue
-    key = readFileSync(path, 'utf8').match(/^\s*CONTEXT_DEV_API_KEY\s*=\s*["']?([^"'\s#]+)/m)?.[1]
-  }
-  if (!key) throw new Error('CONTEXT_DEV_API_KEY is not set (environment, .env here or in the repo root)')
-  cachedKey = key
-  return key
+  cachedKey ??= setting('CONTEXT_DEV_API_KEY')
+  return cachedKey
 }
 
 // At most this many requests in flight. A hackathon key allows 50; staying well below keeps

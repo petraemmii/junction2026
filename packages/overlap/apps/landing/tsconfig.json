@@ -1,7 +1,9 @@
 {
   "extends": "astro/tsconfigs/strict",
   "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist"],
+  // src/worker/backend.mjs is written by `build:site` and imports the backend's server bundle; its
+  // types are in backend.d.mts.
+  "exclude": ["dist", "src/worker/backend.mjs"],
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "react",

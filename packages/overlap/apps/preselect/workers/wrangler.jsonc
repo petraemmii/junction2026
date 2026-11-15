@@ -1,0 +1,15 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  // Not a deploy config: this app is deployed as part of the composed site's Worker
+  // (apps/landing/wrangler.jsonc, `vp run deploy:landing`). The Workers build of this app
+  // (PRESELECT_TARGET=workers in astro.config.mjs) reads this file to know the runtime it builds
+  // for. Keep the date and flags the same as in apps/landing/wrangler.jsonc
+  // (apps/landing/src/config.test.ts checks).
+  //
+  // It has a folder of its own on purpose: the build copies a .dev.vars or .env it finds beside
+  // this file into its output (for `astro preview`), and the app's own .env, one folder up, holds
+  // the Context.dev key. Keep env files out of this folder.
+  "name": "overlap-preselect-build",
+  "compatibility_date": "2026-11-13",
+  "compatibility_flags": ["nodejs_compat", "assets_navigation_has_no_effect"],
+}

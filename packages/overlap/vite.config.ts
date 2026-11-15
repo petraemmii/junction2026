@@ -15,13 +15,20 @@ const vendored = [
 ]
 
 // Generated or tool-owned files.
-const generated = ['**/dist/**', '**/.astro/**', '**/.wrangler/**', 'apps/landing/worker-configuration.d.ts']
+const generated = [
+  '**/dist/**',
+  '**/.astro/**',
+  '**/.wrangler/**',
+  'apps/landing/worker-configuration.d.ts',
+  // Written by `build:site`: which backend the site's Worker bundles.
+  'apps/landing/src/worker/backend.mjs',
+]
 
 export default defineConfig({
   // `vp test` at the root runs the tests of these packages, each with the `test` block of its own
   // vite.config.ts.
   test: {
-    projects: ['apps/landing', 'scripts'],
+    projects: ['apps/landing', 'apps/preselect', 'scripts'],
   },
   fmt: {
     // The style of the Figma Make template (apps/app/vite.config.ts).

@@ -4,3 +4,6 @@
 # Wrangler / Cloudflare local state
 .wrangler/
 .dev.vars*
+
+# Written by the root `build:site` script: which backend the Worker bundles (src/worker/index.ts).
+/src/worker/backend.mjs

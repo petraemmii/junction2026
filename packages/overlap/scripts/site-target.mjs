@@ -17,6 +17,33 @@ export const DEFAULT_SITE_BASE = '/submission/'
 export const APP_PATH = '/app/'
 
 /**
+ * The pre-selection backend's path below the site's base (/preselect/ at the root,
+ * /submission/preselect/ under /submission): its organiser view, with its API below it. The same
+ * path is in the /preselect/ rule of apps/landing/public/_headers; config.test.ts checks.
+ */
+export const PRESELECT_PATH = '/preselect/'
+
+/**
+ * What PUBLIC_PRESELECT_URL means to `build:site`, for a site below `base` (as normalizeBase
+ * returns it):
+ * - unset: the backend is built into the site's Worker and the landing page uses it at
+ *   <base>preselect, on its own origin (`bundle`);
+ * - a URL: a backend deployed elsewhere, which the landing page uses instead;
+ * - empty: no backend, and the landing page reads no profiles.
+ * `url` is the PUBLIC_PRESELECT_URL the landing page is built with, `path` where a bundled backend
+ * is served: no trailing slash, as Astro's `base` of that build.
+ *
+ * @param {string | undefined} value
+ * @param {string} base
+ * @returns {{ bundle: boolean, url: string, path: string | null }}
+ */
+export function preselectTarget(value, base) {
+  if (value !== undefined) return { bundle: false, url: value.trim(), path: null }
+  const path = `${base}${PRESELECT_PATH.slice(1, -1)}`
+  return { bundle: true, url: path, path }
+}
+
+/**
  * SITE_BASE as a path with a slash at both ends ("/submission/"), or "/" for the root of the origin.
  * "/submission", "/submission/" and "submission" are the same base; undefined, "" and "/" mean the
  * root. Throws on anything that is not a plain URL path.

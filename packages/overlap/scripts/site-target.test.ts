@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
 
-import { DEFAULT_SITE_BASE, normalizeBase, prefixHeaderRules } from './site-target.mjs'
+import { DEFAULT_SITE_BASE, PRESELECT_PATH, normalizeBase, prefixHeaderRules, preselectTarget } from './site-target.mjs'
 
 describe('normalizeBase', () => {
   it('takes the base with or without its slashes', () => {
@@ -70,5 +70,35 @@ describe('prefixHeaderRules', () => {
   it('handles a deeper base, CRLF line ends and the root', () => {
     expect(prefixHeaderRules('/*\r\n  A: b\r\n/events/*\r\n', '/a/b/')).toBe('/a/b*\r\n  A: b\r\n/a/b/events/*\r\n')
     expect(prefixHeaderRules(headers, '/')).toBe(headers)
+  })
+})
+
+describe('preselectTarget', () => {
+  it('bundles the backend below the base when PUBLIC_PRESELECT_URL is unset', () => {
+    expect(preselectTarget(undefined, '/submission/')).toEqual({
+      bundle: true,
+      url: '/submission/preselect',
+      path: '/submission/preselect',
+    })
+    expect(preselectTarget(undefined, '/')).toEqual({ bundle: true, url: '/preselect', path: '/preselect' })
+    expect(PRESELECT_PATH).toBe('/preselect/')
+  })
+
+  it('uses a backend deployed elsewhere when it is a URL', () => {
+    expect(preselectTarget('https://preselect.example.com', '/submission/')).toEqual({
+      bundle: false,
+      url: 'https://preselect.example.com',
+      path: null,
+    })
+  })
+
+  it('builds a site without a backend when it is empty', () => {
+    for (const value of ['', ' ']) {
+      expect(preselectTarget(value, '/submission/'), JSON.stringify(value)).toEqual({
+        bundle: false,
+        url: '',
+        path: null,
+      })
+    }
   })
 })

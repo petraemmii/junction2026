@@ -2,7 +2,9 @@
 
 Applicant pre-selection for recruitment events (`@overlap/preselect`), built for the City of
 Espoo challenge "Rethinking Recruitment" with the Deep Tech Talent Forum as the example event.
-Astro 7 with a Node server, React islands and Tailwind CSS v4.
+Astro 7 (server-rendered), a React island and Tailwind CSS v4. It runs as a Node server in
+development and as part of the composed site's Cloudflare Worker when deployed
+([On Cloudflare Workers](#on-cloudflare-workers)).
 
 - **Applications** (`POST /api/apply`): takes whatever an applicant typed about where their work
   is (GitHub, LinkedIn, Google Scholar, a personal site, anything public), as JSON
@@ -45,8 +47,50 @@ From the repo root, after `pnpm install`:
 pnpm --filter @overlap/preselect run dev      # dev server at http://localhost:4322
 pnpm --filter @overlap/preselect run build    # build the Node server into dist/
 pnpm --filter @overlap/preselect run check    # astro check
-pnpm --filter @overlap/preselect exec vp test # unit tests for scoring, quotas and parsing
+pnpm --filter @overlap/preselect exec vp test # unit tests for scoring, quotas, parsing and storage
 ```
+
+## On Cloudflare Workers
+
+The root `build:site` script builds this app a second way, for the Worker that serves the composed
+site (`apps/landing/wrangler.jsonc`, see the root README): `PRESELECT_TARGET=workers` swaps the
+Node adapter for `@astrojs/cloudflare` (no sessions, no image service, so no KV or Images binding)
+and `PRESELECT_BASE` is the path it is served below, `/submission/preselect` on junction2026.com.
+The output is `dist/workers/`: `server/`, which Wrangler bundles into the Worker, and `client/`,
+which `build:site` copies into the site's static files. `workers/wrangler.jsonc` is not a deploy
+config; it tells that build which runtime it builds for. This app is never deployed on its own.
+
+What differs between the two servers is behind the `#runtime` import (`imports` in
+`package.json`): `src/lib/runtime.node.ts`, and `src/lib/runtime.workers.ts` in the Workers build.
+
+|                        | Node (`astro dev`, `astro build`)                | Cloudflare Workers                                                           |
+| ---------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Address                | the root of its origin, http://localhost:4322    | below the site's base: `/submission/preselect/`, API below it                |
+| Applicants             | `data/applicants.json`                           | the D1 database `overlap-preselect` (binding `DB`), one row per applicant    |
+| Companies              | `data/companies.json`, read on every request     | `data/companies.json` as it was at build time, bundled                       |
+| Settings and secrets   | the environment, `.env` here or in the repo root | secrets of the Worker; `apps/landing/.dev.vars` for `wrangler dev`           |
+| At most 120 reads/hour | counted in the server's memory                   | counted in D1 as well, across the Worker's instances                         |
+| LinkedIn snapshot      | `data/linkedin-snapshot.json`                    | a row of the `documents` table (at most 2 MB; reported when it does not fit) |
+
+The key is set once on the deployed Worker, from the repo root:
+
+```sh
+pnpm --filter @overlap/landing exec wrangler secret put CONTEXT_DEV_API_KEY
+```
+
+It is read when a request needs it and is never part of a build. For a local run of the Worker
+(`vp run --filter @overlap/landing preview`), put `CONTEXT_DEV_API_KEY=...` in
+`apps/landing/.dev.vars`, which git ignores. Do not put a `.env` or `.dev.vars` in `workers/`:
+the Workers build copies one from there into its output, and `build:site` then fails.
+
+The D1 tables (`applicants`, `documents`, `reads`) are created on the first request
+(`src/lib/storage-d1.ts`); there is no migration step. An applicant is written with an upsert, so
+two applications at once cannot overwrite each other. The collection scripts below write the
+JSON files only; they do not fill D1.
+
+Once deployed, the organiser view and `POST /api/apply` are public: there is no login. Anyone
+with the address sees the applicants and can send applications, which spend Context.dev credits
+up to the hourly cap (`MAX_READS_PER_HOUR` in `src/lib/storage.ts`).
 
 ### Data
 
@@ -103,6 +147,10 @@ list with a new pick; run `vp fmt` on the file before committing it.
 | Scores per slider, quotas per field, the selection                        | `src/lib/scoring.ts`    |
 | Match between an applicant and the participating companies                | `src/lib/companies.ts`  |
 | The facts shown on a card                                                 | `src/lib/traits.ts`     |
+| Settings and secrets, read when a request needs them                      | `src/lib/settings.ts`   |
+| What differs between Node and Cloudflare Workers (`#runtime`)             | `src/lib/runtime.*.ts`  |
+| Storage for the request handlers: the interface, files (Node), D1         | `src/lib/storage*.ts`   |
+| The JSON files in `data/`, as the scripts read and write them             | `src/lib/store.ts`      |
 | Pages and the application endpoint                                        | `src/pages/`            |
 | Organiser view                                                            | `src/components/`       |
 
@@ -135,8 +183,7 @@ This is still a rule-based parser: unusual layouts, other languages, charts and 
 may need manual review. Successful extraction means some structured data was found, not that
 every fact in the CV was understood. An empty conversion reports `NO_TEXT_IN_FILE`; text with no
 recognised education, experience, projects or skills reports `NO_CV_DATA`. Both retain any
-returned Markdown. Run the preselect tests explicitly with the command above; the root test
-configuration currently runs only the landing-page tests.
+returned Markdown. The root `vp test` runs the preselect tests too.
 
 ## How the score is built
 
